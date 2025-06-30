@@ -3,7 +3,7 @@ database:
   host: "cockroachdb"
   port: 26257
   user: "appuser"
-  name: "auth_service_prod"
+  name: "authserviceprod"
   sslmode: "verify-full"
   sslrootcert: "/run/secrets/ca.crt"
   sslcert: "/run/secrets/client.auth_user.crt"

@@ -3,8 +3,8 @@
 database:
   host: "localhost"
   port: 26257
-  user: "appuser"
-  name: "auth_service_local"
+  user: "root"
+  name: "authservicelocal"
   sslmode: "verify-full"
   sslrootcert: "./cockroach/certs/ca.crt"
   sslcert: "./cockroach/certs/client.root.crt"

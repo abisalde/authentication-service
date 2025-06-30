@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:v23.1.0
+    restart: unless-stopped
+    networks:
+      - auth-net
+    healthcheck:
+      test:
+        ['CMD', 'cockroach', 'node', 'status', '--certs-dir=/cockroach/certs']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    environment:
+      - APP_ENV=production
+    volumes:
+      - ../../cockroach/certs:/app/cockroach/certs
+    depends_on:
+      - lb
+    networks:
+      - auth-net
+    secrets:
+      - ca.crt
+      - client.appuser.crt
+      - client.appuser.key
+
+networks:
+  auth-net:
+    driver: bridge
+
+volumes:
+  auth-roach-1-data:
+  auth-roach-2-data:
+  auth-roach-3-data:
+
+secrets:
+  ca.crt:
+    file: ./cockroach/certs/ca.crt
+  client.appuser.crt:
+    file: ./cockroach/certs/client.appuser.crt
+  client.appuser.key:
+    file: ./cockroach/certs/client.appuser.key
