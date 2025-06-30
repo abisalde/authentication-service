@@ -1,0 +1,11 @@
+# prod.yml
+database:
+  host: "cockroachdb"
+  port: 26257
+  user: "appuser"
+  name: "auth_service_prod"
+  sslmode: "verify-full"
+  sslrootcert: "/run/secrets/ca.crt"
+  sslcert: "/run/secrets/client.auth_user.crt"
+  sslkey: "/run/secrets/client.auth_user.key"
+  migrate: false

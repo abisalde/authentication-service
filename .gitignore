@@ -89,3 +89,7 @@ profile.out
 # Development artifacts
 debug
 tmp/
+
+# Certificate files
+/cockroach/certs/*
+!/cockroach/certs/README.md
