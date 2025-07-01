@@ -122,104 +122,55 @@ mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.override.yml" <<EOF
 services:
   auth-roach-1:
-    image: cockroachdb/cockroach:$COCKROACH_VERSION
+    extends:
+      file: docker-compose.yml
+      service: cockroachdb
     command:
       - start
       - --certs-dir=/cockroach/certs
-      - --listen-addr=:26257
-      - --advertise-addr=auth-roach-1
-      - --http-addr=:8080
+      - --listen-addr=:36257
       - --sql-addr=:26257
       - --advertise-sql-addr=auth-roach-1:26257
       - --cache=25%
       - --join=auth-roach-1,auth-roach-2,auth-roach-3
-      - --max-sql-memory=25%
     volumes:
       - ${VOLUME_PREFIX}-1-data:/cockroach/cockroach-data
       - $CERTS_DIR:/cockroach/certs
       - $CERTS_DIR/init.sql:/docker-entrypoint-initdb.d/init.sql
-    environment:
-      - COCKROACH_CHANNEL=kubernetes-secure
-      - COCKROACH_DEBUG_ENABLE_REMOTE_DEBUGGING=false
-    networks:
-      - auth-net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health?ready=1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 2G
+    
 
   auth-roach-2:
+    extends:
+      file: docker-compose.yml
+      service: cockroachdb
     image: cockroachdb/cockroach:$COCKROACH_VERSION
     command: 
       - start 
       - --certs-dir=/cockroach/certs
-      - --listen-addr=:26257
-      - --advertise-addr=auth-roach-2
-      - --http-addr=:8080
+      - --listen-addr=:36257
       - --sql-addr=:26257
-      - --advertise-addr=auth-roach-2:26257
       - --advertise-sql-addr=auth-roach-2:26257
       - --join=auth-roach-1,auth-roach-2,auth-roach-3 
       - --cache=25%
     volumes:
       - ${VOLUME_PREFIX}-2-data:/cockroach/cockroach-data
       - $CERTS_DIR:/cockroach/certs
-    environment:
-      - COCKROACH_CHANNEL=kubernetes-secure
-    networks:
-      - auth-net
-    depends_on:
-      - auth-roach-1
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health?ready=1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 2G
 
   auth-roach-3:
-    image: cockroachdb/cockroach:$COCKROACH_VERSION
+    extends:
+      file: docker-compose.yml
+      service: cockroachdb
     command: 
       - start 
       - --certs-dir=/cockroach/certs
-      - --listen-addr=:26257
-      - --advertise-addr=auth-roach-2
-      - --http-addr=:8080
+      - --listen-addr=:36257
       - --sql-addr=:26257
-      - --advertise-addr=auth-roach-2:26257
-      - --advertise-sql-addr=auth-roach-2:26257
-      - --advertise-addr=auth-roach-3
+      - --advertise-sql-addr=auth-roach-3:26257
       - --join=auth-roach-1,auth-roach-2,auth-roach-3
       - --cache=25%
     volumes:
       - ${VOLUME_PREFIX}-3-data:/cockroach/cockroach-data
       - $CERTS_DIR:/cockroach/certs
-    environment:
-      - COCKROACH_CHANNEL=kubernetes-secure
-    networks:
-      - auth-net
-    depends_on:
-      - auth-roach-1
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health?ready=1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 2G
 
   lb:
     image: cockroachdb/cockroach:$COCKROACH_VERSION

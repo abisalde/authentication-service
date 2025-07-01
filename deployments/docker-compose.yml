@@ -1,4 +1,22 @@
 services:
+  cockroachdb:
+    image: cockroachdb/cockroach:v23.2.0
+    restart: unless-stopped
+    networks:
+      - auth-net
+    environment:
+      - COCKROACH_CHANNEL=kubernetes-secure
+    healthcheck:
+      test:
+        ['CMD', 'cockroach', 'node', 'status', '--certs-dir=/cockroach/certs']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
   auth-service:
     build:
       context: ../
