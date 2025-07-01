@@ -1,50 +1,37 @@
-version: '3.8'
-
 services:
-  cockroachdb:
-    image: cockroachdb/cockroach:v23.1.0
-    restart: unless-stopped
-    networks:
-      - auth-net
-    healthcheck:
-      test:
-        ['CMD', 'cockroach', 'node', 'status', '--certs-dir=/cockroach/certs']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   auth-service:
     build:
-      context: ../..
+      context: ../
       dockerfile: Dockerfile
     ports:
+      - '3000:3000'
       - '8080:8080'
     environment:
       - APP_ENV=production
-    volumes:
-      - ../../cockroach/certs:/app/cockroach/certs
-    depends_on:
-      - lb
+      - DB_HOST=lb
+      - DB_PORT=26257
     networks:
       - auth-net
+    depends_on:
+      lb:
+        condition: service_healthy
     secrets:
-      - ca.crt
-      - client.appuser.crt
-      - client.appuser.key
+      - source: ca.crt
+        target: /app/cockroach/certs/ca.crt
+      - source: client.appuser.crt
+        target: /app/cockroach/certs/client.appuser.crt
+      - source: client.appuser.key
+        target: /app/cockroach/certs/client.appuser.key
 
 networks:
   auth-net:
+    external: true
     driver: bridge
-
-volumes:
-  auth-roach-1-data:
-  auth-roach-2-data:
-  auth-roach-3-data:
 
 secrets:
   ca.crt:
-    file: ./cockroach/certs/ca.crt
+    file: ../scripts/cockroach/certs/ca.crt
   client.appuser.crt:
-    file: ./cockroach/certs/client.appuser.crt
+    file: ../scripts/cockroach/certs/client.appuser.crt
   client.appuser.key:
-    file: ./cockroach/certs/client.appuser.key
+    file: ../scripts/cockroach/certs/client.appuser.key

@@ -1,6 +1,6 @@
 # prod.yml
 database:
-  host: "cockroachdb"
+  host: "lb"
   port: 26257
   user: "appuser"
   name: "authserviceprod"
