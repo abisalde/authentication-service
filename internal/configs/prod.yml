@@ -1,11 +1,9 @@
 # prod.yml
 database:
-  host: "lb"
-  port: 26257
+  host: "postgres"
+  port: 5432
+  dbname: "authserviceprod"
+  password: ${PROD_DB_PASSWORD:-prod_db_password}
   user: "appuser"
-  name: "authserviceprod"
-  sslmode: "verify-full"
-  sslrootcert: "/run/secrets/ca.crt"
-  sslcert: "/run/secrets/client.auth_user.crt"
-  sslkey: "/run/secrets/client.auth_user.key"
+  sslmode: require
   migrate: false

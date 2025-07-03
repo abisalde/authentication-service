@@ -4,16 +4,14 @@ set -eo pipefail
 # Configuration
 export LC_ALL=C
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-VOLUME_PREFIX="auth-roach"
-NETWORK_NAME="auth-net"
 DEPLOY_DIR="$PROJECT_ROOT/deployments"
 CERTS_DIR="$PROJECT_ROOT/scripts/cockroach/certs"
-NODE_COUNT=3
-COCKROACH_VERSION="v23.2.0"
-CERT_LIFETIME="8750h"
-ADMIN_USER="root"
-APP_USER="appuser"
-DB_NAME="authserviceprod"
+CONFIG_ENV="$PROJECT_ROOT/internal/configs"
+DEV_DB_USER="root"
+DEV_DB_NAME="authservicelocal"
+PROD_DB_USER="appuser"
+PROD_DB_NAME="authserviceprod"
+REDIS_PASSWORD=$(openssl rand -hex 32)
 
 # --------------------------
 # Functions
@@ -23,8 +21,12 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-generate_password() {
+generate_dev_password() {
   < /dev/urandom tr -dc 'A-Za-z0-9!#$%&()*+,-./:;<=>?@[\]^_{|}~' | head -c 32 2>/dev/null || true
+}
+
+generate_prod_password() {
+  openssl rand -hex 32
 }
 
 verify_directories() {
@@ -46,190 +48,156 @@ verify_project_root() {
 # Main Script
 # --------------------------
 
-log "🚀 Starting CockroachDB cluster setup"
-
 # Verify execution context
 verify_project_root
 verify_directories
 
-# 1. Create Docker resources
-log "🔧 Creating Docker volumes and network..."
-for i in $(seq 1 $NODE_COUNT); do
-  docker volume create "${VOLUME_PREFIX}-${i}-data" >/dev/null || {
-    log "❌ Failed to create volume ${VOLUME_PREFIX}-${i}-data"
-    exit 1
-  }
-done
-
-docker network create -d bridge "$NETWORK_NAME" >/dev/null || {
-  log "❌ Failed to create network $NETWORK_NAME"
-  exit 1
-}
-
-# 2. Generate certificates
-log "🔐 Generating certificates..."
-
-# CA Certificate
-# Create certificates directly on host first
-docker run --rm -v "$CERTS_DIR:/certs" cockroachdb/cockroach:$COCKROACH_VERSION \
-  cert create-ca --certs-dir=/certs --ca-key=/certs/ca.key --allow-ca-key-reuse || {
-  log "❌ Failed to generate CA certificate"
-  exit 1
-}
-
-# Node Certificates
-docker run --rm -v "$CERTS_DIR:/certs" cockroachdb/cockroach:$COCKROACH_VERSION \
-  cert create-node localhost 127.0.0.1 auth-roach-1 auth-roach-2 auth-roach-3 lb $(hostname) *.auth-net auth-net \
-  --certs-dir=/certs --ca-key=/certs/ca.key || {
-  log "❌ Failed to generate node certificates"
-  exit 1
-}
-
-# Client Certificates
-docker run --rm -v "$CERTS_DIR:/certs" cockroachdb/cockroach:$COCKROACH_VERSION \
-  cert create-client "$ADMIN_USER" --certs-dir=/certs --ca-key=/certs/ca.key || {
-  log "❌ Failed to generate admin certificate"
-  exit 1
-}
-
-docker run --rm -v "$CERTS_DIR:/certs" cockroachdb/cockroach:$COCKROACH_VERSION \
-  cert create-client "$APP_USER" --certs-dir=/certs --ca-key=/certs/ca.key || {
-  log "❌ Failed to generate app user certificate"
-  exit 1
-}
-
-# 3. Set proper permissions
-log "🔒 Setting file permissions..."
-chmod 600 "$CERTS_DIR"/*.key
-chmod 644 "$CERTS_DIR"/*.crt
-
-# 4. Create database initialization script
-log "📝 Generating initialization SQL..."
-APP_USER_PASSWORD=$(generate_password)
-cat > "$CERTS_DIR/init.sql" <<EOF
-CREATE DATABASE IF NOT EXISTS $DB_NAME;
-CREATE USER IF NOT EXISTS $APP_USER WITH PASSWORD '$APP_USER_PASSWORD';
-GRANT ALL ON DATABASE $DB_NAME TO $APP_USER;
-EOF
 
 # Store password securely
-echo "$APP_USER_PASSWORD" > "$CERTS_DIR/.db_password"
-chmod 400 "$CERTS_DIR/.db_password"
+log "🚀 Setting up PostgreSQL + Redis environment"
+
+# Create directories
+mkdir -p "$CERTS_DIR"
+chmod 700 "$CERTS_DIR"
+
+# Generate passwords
+PROD_DB_PASSWORD=$(generate_prod_password)
+DEV_DB_PASSWORD=$(generate_dev_password)
+echo "$PROD_DB_PASSWORD" > "$CERTS_DIR/.prod_db_password"
+echo "$DEV_DB_PASSWORD" > "$CERTS_DIR/.dev_db_password"
+echo "$REDIS_PASSWORD" > "$CERTS_DIR/.redis_password"
+chmod 600 "$CERTS_DIR"/.*password
+
+# Create .env file for Docker Compose
+log "🚀 Starts to create ENV"
+cat > "$PROJECT_ROOT/.env" <<EOF
+REDIS_PASSWORD=$REDIS_PASSWORD
+DB_PASSWORD=$DEV_DB_PASSWORD
+EOF
+
+
+# Create init-db.sql for initial database setup
+cat > "$CERTS_DIR/init-db.sql" <<EOF
+CREATE USER IF NOT EXISTS $PROD_DB_USER WITH PASSWORD '$PROD_DB_PASSWORD';
+CREATE DATABASE $PROD_DB_NAME;
+GRANT ALL PRIVILEGES ON DATABASE $PROD_DB_NAME TO $PROD_DB_USER;
+
+CREATE USER IF NOT EXISTS $DEV_DB_USER WITH PASSWORD '$DEV_DB_PASSWORD';
+CREATE DATABASE $DEV_DB_NAME;
+GRANT ALL PRIVILEGES ON DATABASE $DEV_DB_NAME TO $DEV_DB_USER;
+EOF
+
 
 # 5. Generate Docker Compose override
 log "🐳 Generating Docker Compose override..."
 mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.override.yml" <<EOF
 services:
-  auth-roach-1:
-    extends:
-      file: docker-compose.yml
-      service: cockroachdb
-    command:
-      - start
-      - --certs-dir=/cockroach/certs
-      - --listen-addr=:36257
-      - --sql-addr=:26257
-      - --advertise-sql-addr=auth-roach-1:26257
-      - --cache=25%
-      - --join=auth-roach-1,auth-roach-2,auth-roach-3
-    volumes:
-      - ${VOLUME_PREFIX}-1-data:/cockroach/cockroach-data
-      - $CERTS_DIR:/cockroach/certs
-      - $CERTS_DIR/init.sql:/docker-entrypoint-initdb.d/init.sql
-    
-
-  auth-roach-2:
-    extends:
-      file: docker-compose.yml
-      service: cockroachdb
-    image: cockroachdb/cockroach:$COCKROACH_VERSION
-    command: 
-      - start 
-      - --certs-dir=/cockroach/certs
-      - --listen-addr=:36257
-      - --sql-addr=:26257
-      - --advertise-sql-addr=auth-roach-2:26257
-      - --join=auth-roach-1,auth-roach-2,auth-roach-3 
-      - --cache=25%
-    volumes:
-      - ${VOLUME_PREFIX}-2-data:/cockroach/cockroach-data
-      - $CERTS_DIR:/cockroach/certs
-
-  auth-roach-3:
-    extends:
-      file: docker-compose.yml
-      service: cockroachdb
-    command: 
-      - start 
-      - --certs-dir=/cockroach/certs
-      - --listen-addr=:36257
-      - --sql-addr=:26257
-      - --advertise-sql-addr=auth-roach-3:26257
-      - --join=auth-roach-1,auth-roach-2,auth-roach-3
-      - --cache=25%
-    volumes:
-      - ${VOLUME_PREFIX}-3-data:/cockroach/cockroach-data
-      - $CERTS_DIR:/cockroach/certs
-
-  lb:
-    image: cockroachdb/cockroach:$COCKROACH_VERSION
-    command: 
-      - start
-      - --join=auth-roach-1,auth-roach-2,auth-roach-3
-      - --certs-dir=/cockroach/certs
-      - --http-addr=0.0.0.0:8080
-      - --sql-addr=lb:26257
-      - --advertise-addr=lb
-      - --cache=25%
-      - --max-sql-memory=25%
+  postgres:
+    image: postgres:16-alpine
     environment:
-      - COCKROACH_CONNECT_TIMEOUT=15s 
-    depends_on:
-      auth-roach-1:
-        condition: service_healthy
-      auth-roach-2:
-        condition: service_healthy
-      auth-roach-3:
-        condition: service_healthy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: $PROD_DB_PASSWORD
+      POSTGRES_DB: $PROD_DB_NAME
     volumes:
-      - $CERTS_DIR:/cockroach/certs:ro
-    ports:
-      - "26257:26257"
-      - "8080:8080"
+      - $PROJECT_ROOT/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $PROD_DB_NAME"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - auth-net
+
+  redis:
+    image: redis/redis-stack:7.2.0-v17
+    command: redis-server --requirepass $REDIS_PASSWORD
+    environment:
+      - REDIS_ARGS=--save 1200 32
+      - REDIS_PASSWORD=$REDIS_PASSWORD
+    volumes:
+      - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health?ready=1 || exit 1"]
-      interval: 10s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - auth-net
+    ports:
+      - 6379:6379
     deploy:
       replicas: 1
-      resources:
-        limits:
-          memory: 1G
+      restart_policy:
+        condition: on-failure
+
+  auth-service:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: $PROD_DB_USER
+      DB_PASSWORD: $PROD_DB_PASSWORD
+      DB_NAME: $PROD_DB_NAME
+      DB_SSL_MODE: require
+      REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:6379"
 
 volumes:
-  ${VOLUME_PREFIX}-1-data:
-  ${VOLUME_PREFIX}-2-data:
-  ${VOLUME_PREFIX}-3-data:
+  postgres_data:
+  redis_data:
+
+networks:
+  auth-net:
+    driver: bridge
 EOF
 
 # 6. Update configuration files
 log "⚙️ Updating configuration files..."
+
+# Platform detection
+SED_INPLACE=()
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' "s/host:.*/host: \"localhost\"/" internal/configs/dev.yml
-  sed -i '' "s/host:.*/host: \"lb\"/" internal/configs/prod.yml
+  SED_INPLACE=(-i '')
 else
-  sed -i "s/host:.*/host: \"localhost\"/" internal/configs/dev.yml
-  sed -i "s/host:.*/host: \"lb\"/" internal/configs/prod.yml
+  SED_INPLACE=(-i)
 fi
 
+# Update development config
+sed "${SED_INPLACE[@]}" \
+  -e "s|host:.*|host: \"localhost\"|" \
+  -e "s|port:.*|port: 5432|" \
+  -e "s|user:.*|user: \"$DEV_DB_USER\"|" \
+  -e "s|password:.*|password: \${DEV_DB_PASSWORD:-dev_db_password}|" \
+  -e "s|dbname:.*|dbname: \"$DEV_DB_NAME\"|" \
+  -e "s|sslmode:.*|sslmode: disable|" \
+  "$CONFIG_ENV/dev.yml"
+
+# Update production config  
+sed "${SED_INPLACE[@]}" \
+  -e "s|host:.*|host: \"postgres\"|" \
+  -e "s|port:.*|port: 5432|" \
+  -e "s|user:.*|user: \"$PROD_DB_USER\"|" \
+  -e "s|password:.*|password: \${PROD_DB_PASSWORD:-prod_db_password}|" \
+  -e "s|dbname:.*|dbname: \"$PROD_DB_NAME\"|" \
+  -e "s|sslmode:.*|sslmode: require|" \
+  "$CONFIG_ENV/prod.yml"
+
+log "✅ Configuration files updated"
+
 log "✅ Setup completed successfully!"
+
+
 echo -e "\nNext steps:"
-echo "1. Start the cluster:"
-echo "   docker-compose -f $DEPLOY_DIR/docker-compose.yml -f $DEPLOY_DIR/docker-compose.override.yml up -d"
 echo ""
-echo "2. Initialize database:"
+echo "1. 📡 Initialize docker-compose"
+echo "   ./scripts/init.sh"
+echo ""
+echo "1. Initialize database:"
 echo "   ./scripts/migrate.sh"

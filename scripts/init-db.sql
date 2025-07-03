@@ -1,0 +1,3 @@
+CREATE USER appuser WITH PASSWORD '${DB_PASSWORD}';
+
+GRANT ALL PRIVILEGES ON DATABASE authserviceprod TO appuser;

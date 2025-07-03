@@ -1,55 +1,81 @@
 services:
-  cockroachdb:
-    image: cockroachdb/cockroach:v23.2.0
-    restart: unless-stopped
-    networks:
-      - auth-net
-    environment:
-      - COCKROACH_CHANNEL=kubernetes-secure
-    healthcheck:
-      test:
-        ['CMD', 'cockroach', 'node', 'status', '--certs-dir=/cockroach/certs']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 2G
   auth-service:
     build:
       context: ../
       dockerfile: Dockerfile
+      secrets:
+        - dev_db_password
     ports:
-      - '3000:3000'
       - '8080:8080'
-    environment:
-      - APP_ENV=production
-      - DB_HOST=lb
-      - DB_PORT=26257
     networks:
       - auth-net
-    depends_on:
-      lb:
-        condition: service_healthy
+    environment:
+      DB_HOST: localhost
+      DB_USER: root
+      DB_PASSWORD_FILE: /run/secrets/dev_db_password
+      DB_NAME: authservicelocal
+      DB_SSL_MODE: disable
+      REDIS_ARGS: --save 1200 32
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      REDIS_URL: redis://redis:6379
     secrets:
-      - source: ca.crt
-        target: /app/cockroach/certs/ca.crt
-      - source: client.appuser.crt
-        target: /app/cockroach/certs/client.appuser.crt
-      - source: client.appuser.key
-        target: /app/cockroach/certs/client.appuser.key
+      - dev_db_password
+      - redis_password
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  postgres-dev:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD_FILE: /run/secrets/dev_db_password
+      POSTGRES_DB: authservicelocal
+    secrets:
+      - dev_db_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d
+    networks:
+      - auth-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U root -d authservicelocal']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-networks:
-  auth-net:
-    external: true
-    driver: bridge
+  redis:
+    image: redis/redis-stack:7.2.0-v17
+    environment:
+      REDIS_ARGS: --save 1200 32
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
+    command: redis-server --requirepass /run/secrets/redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    networks:
+      - auth-net
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_dev_data:
+  redis_data:
 
 secrets:
-  ca.crt:
-    file: ../scripts/cockroach/certs/ca.crt
-  client.appuser.crt:
-    file: ../scripts/cockroach/certs/client.appuser.crt
-  client.appuser.key:
-    file: ../scripts/cockroach/certs/client.appuser.key
+  dev_db_password:
+    file: ../scripts/cockroach/certs/.dev_db_password
+  redis_password:
+    file: ../scripts/cockroach/certs/.redis_password
+networks:
+  auth-net:
+    driver: bridge

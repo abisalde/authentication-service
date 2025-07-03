@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o authentication-service ./c
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates && \
+RUN apk add --no-cache ca-certificates postgresql-client && \
     adduser -D -g '' appuser
 
 # RUN adduser -D -g '' appuser
@@ -30,6 +30,7 @@ USER appuser
 WORKDIR /home/appuser
 
 EXPOSE 8080
+EXPOSE 6379
 
 # Copy binary and migrations
 COPY --from=builder --chown=appuser /app/authentication-service .
