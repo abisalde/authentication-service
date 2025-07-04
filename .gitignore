@@ -94,3 +94,6 @@ tmp/
 /scripts/cockroach/certs/*
 !/scripts/cockroach/certs/README.md
 /deployments/docker-compose.override.yml
+
+# Secrets files
+/secrets/*

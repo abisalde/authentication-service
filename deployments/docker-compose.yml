@@ -3,52 +3,55 @@ services:
     build:
       context: ../
       dockerfile: Dockerfile
-      secrets:
-        - dev_db_password
     ports:
       - '8080:8080'
     networks:
       - auth-net
     environment:
-      DB_HOST: localhost
-      DB_USER: root
+      DB_HOST: mysql-dev
+      DB_PORT: 3306
+      DB_USER: appuser
       DB_PASSWORD_FILE: /run/secrets/dev_db_password
       DB_NAME: authservicelocal
       DB_SSL_MODE: disable
       REDIS_ARGS: --save 1200 32
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://default:$$(cat /run/secrets/redis_password)@redis:6379
     secrets:
       - dev_db_password
       - redis_password
     depends_on:
-      postgres-dev:
+      mysql-dev:
         condition: service_healthy
       redis:
         condition: service_healthy
-  postgres-dev:
-    image: postgres:16-alpine
+
+  mysql-dev:
+    image: mysql:lts
+    container_name: mysql-dev
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD_FILE: /run/secrets/dev_db_password
-      POSTGRES_DB: authservicelocal
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/dev_db_password
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD_FILE: /run/secrets/dev_db_password
+      MYSQL_DATABASE: authservicelocal
     secrets:
       - dev_db_password
     ports:
-      - '5432:5432'
+      - '3388:3306'
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
-      - ../migrations:/docker-entrypoint-initdb.d
+      - mysql_dev_data:/var/lib/mysql
+      - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - auth-net
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U root -d authservicelocal']
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   redis:
     image: redis/redis-stack:7.2.0-v17
+    container_name: redis
     environment:
       REDIS_ARGS: --save 1200 32
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
@@ -58,7 +61,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - '6379:6379'
+      - '6388:6379'
     networks:
       - auth-net
     healthcheck:
@@ -68,14 +71,15 @@ services:
       retries: 5
 
 volumes:
-  postgres_dev_data:
+  mysql_dev_data:
   redis_data:
 
 secrets:
   dev_db_password:
-    file: ../scripts/cockroach/certs/.dev_db_password
+    file: ../secrets/.dev_db_password
   redis_password:
-    file: ../scripts/cockroach/certs/.redis_password
+    file: ../secrets/.redis_password
+
 networks:
   auth-net:
     driver: bridge

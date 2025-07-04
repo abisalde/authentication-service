@@ -5,13 +5,21 @@ set -eo pipefail
 export LC_ALL=C
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DEPLOY_DIR="$PROJECT_ROOT/deployments"
-CERTS_DIR="$PROJECT_ROOT/scripts/cockroach/certs"
+SECRETS_DIR="$PROJECT_ROOT/secrets"
 CONFIG_ENV="$PROJECT_ROOT/internal/configs"
-DEV_DB_USER="root"
+DB_USER="appuser"
 DEV_DB_NAME="authservicelocal"
-PROD_DB_USER="appuser"
 PROD_DB_NAME="authserviceprod"
 REDIS_PASSWORD=$(openssl rand -hex 32)
+
+# Port Configuration
+MYSQL_DEV_HOST_PORT=3388
+MYSQL_DEV_PROD_HOST_PORT=3308
+MYSQL_DEV_CONTAINER_PORT=3306
+REDIS_DEV_HOST_PORT=6388
+REDIS_DEV_CONTAINER_PORT=6379
+APP_DEV_HOST_PORT=8080
+APP_DEV_CONTAINER_PORT=8080
 
 # --------------------------
 # Functions
@@ -31,8 +39,8 @@ generate_prod_password() {
 
 verify_directories() {
   log "📂 Verifying directory structure..."
-  mkdir -p "$CERTS_DIR" || {
-    log "❌ Failed to create certificates directory"
+  mkdir -p "$SECRETS_DIR" || {
+    log "❌ Failed to create secrets directory"
     exit 1
   }
 }
@@ -57,34 +65,41 @@ verify_directories
 log "🚀 Setting up PostgreSQL + Redis environment"
 
 # Create directories
-mkdir -p "$CERTS_DIR"
-chmod 700 "$CERTS_DIR"
+mkdir -p "$SECRETS_DIR"
+chmod 700 "$SECRETS_DIR"
 
 # Generate passwords
 PROD_DB_PASSWORD=$(generate_prod_password)
 DEV_DB_PASSWORD=$(generate_dev_password)
-echo "$PROD_DB_PASSWORD" > "$CERTS_DIR/.prod_db_password"
-echo "$DEV_DB_PASSWORD" > "$CERTS_DIR/.dev_db_password"
-echo "$REDIS_PASSWORD" > "$CERTS_DIR/.redis_password"
-chmod 600 "$CERTS_DIR"/.*password
+echo "$PROD_DB_PASSWORD" > "$SECRETS_DIR/.prod_db_password"
+echo "$DEV_DB_PASSWORD" > "$SECRETS_DIR/.dev_db_password"
+echo "$REDIS_PASSWORD" > "$SECRETS_DIR/.redis_password"
+chmod 600 "$SECRETS_DIR"/.*password
 
 # Create .env file for Docker Compose
 log "🚀 Starts to create ENV"
 cat > "$PROJECT_ROOT/.env" <<EOF
 REDIS_PASSWORD=$REDIS_PASSWORD
-DB_PASSWORD=$DEV_DB_PASSWORD
+DEV_DB_PASSWORD=$DEV_DB_PASSWORD
+PROD_DB_PASSWORD=$PROD_DB_PASSWORD
+MYSQL_DEV_HOST_PORT=$MYSQL_DEV_HOST_PORT
+MYSQL_DEV_PROD_HOST_PORT=$MYSQL_DEV_PROD_HOST_PORT
+REDIS_DEV_HOST_PORT=$REDIS_DEV_HOST_PORT
+APP_DEV_HOST_PORT=$APP_DEV_HOST_PORT
 EOF
 
 
 # Create init-db.sql for initial database setup
-cat > "$CERTS_DIR/init-db.sql" <<EOF
-CREATE USER IF NOT EXISTS $PROD_DB_USER WITH PASSWORD '$PROD_DB_PASSWORD';
-CREATE DATABASE $PROD_DB_NAME;
-GRANT ALL PRIVILEGES ON DATABASE $PROD_DB_NAME TO $PROD_DB_USER;
+cat > "$SECRETS_DIR/init-db.sql" <<EOF
+CREATE DATABASE IF NOT EXISTS $PROD_DB_NAME;
+CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$PROD_DB_PASSWORD';
+GRANT ALL PRIVILEGES ON $PROD_DB_NAME.* TO '$DB_USER'@'%';
+FLUSH PRIVILEGES;
 
-CREATE USER IF NOT EXISTS $DEV_DB_USER WITH PASSWORD '$DEV_DB_PASSWORD';
-CREATE DATABASE $DEV_DB_NAME;
-GRANT ALL PRIVILEGES ON DATABASE $DEV_DB_NAME TO $DEV_DB_USER;
+CREATE DATABASE IF NOT EXISTS $DEV_DB_NAME;
+CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DEV_DB_PASSWORD';
+GRANT ALL PRIVILEGES ON $DEV_DB_NAME.* TO '$DB_USER'@'%';
+FLUSH PRIVILEGES;
 EOF
 
 
@@ -93,16 +108,21 @@ log "🐳 Generating Docker Compose override..."
 mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.override.yml" <<EOF
 services:
-  postgres:
-    image: postgres:16-alpine
+  mysql:
+    image: mysql:lts
+    container_name: mysql-prod
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: $PROD_DB_PASSWORD
-      POSTGRES_DB: $PROD_DB_NAME
+      MYSQL_ROOT_PASSWORD: $PROD_DB_PASSWORD
+      MYSQL_USER: $DB_USER
+      MYSQL_PASSWORD: $PROD_DB_PASSWORD
+      MYSQL_DATABASE: $PROD_DB_NAME
+    ports:
+      - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
-      - $PROJECT_ROOT/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_data:/var/lib/mysql
+      - $SECRETS_DIR/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d $PROD_DB_NAME"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "$PROD_DB_NAME"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -112,6 +132,7 @@ services:
   redis:
     image: redis/redis-stack:7.2.0-v17
     command: redis-server --requirepass $REDIS_PASSWORD
+    container_name: redis
     environment:
       - REDIS_ARGS=--save 1200 32
       - REDIS_PASSWORD=$REDIS_PASSWORD
@@ -125,7 +146,7 @@ services:
     networks:
       - auth-net
     ports:
-      - 6379:6379
+      - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
     deploy:
       replicas: 1
       restart_policy:
@@ -136,21 +157,21 @@ services:
       context: ../
       dockerfile: Dockerfile
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: $PROD_DB_USER
+      DB_HOST: mysql
+      DB_PORT: $MYSQL_DEV_PROD_HOST_PORT
+      DB_USER: $DB_USER
       DB_PASSWORD: $PROD_DB_PASSWORD
       DB_NAME: $PROD_DB_NAME
       DB_SSL_MODE: require
-      REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:6379"
+      REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
 
 volumes:
-  postgres_data:
+  mysql_data:
   redis_data:
 
 networks:
@@ -169,24 +190,39 @@ else
   SED_INPLACE=(-i)
 fi
 
+# Ensure variables are set
+: ${MYSQL_DEV_HOST_PORT:=3388}
+: ${REDIS_DEV_HOST_PORT:=6388}
+: ${MYSQL_DEV_PROD_HOST_PORT:=3308}
+: ${REDIS_DEV_CONTAINER_PORT:=6379}
+: ${DEV_DB_NAME:=authservicelocal}
+: ${PROD_DB_NAME:=authserviceprod}
+: ${DB_USER:=appuser}
+
 # Update development config
 sed "${SED_INPLACE[@]}" \
-  -e "s|host:.*|host: \"localhost\"|" \
-  -e "s|port:.*|port: 5432|" \
-  -e "s|user:.*|user: \"$DEV_DB_USER\"|" \
-  -e "s|password:.*|password: \${DEV_DB_PASSWORD:-dev_db_password}|" \
-  -e "s|dbname:.*|dbname: \"$DEV_DB_NAME\"|" \
-  -e "s|sslmode:.*|sslmode: disable|" \
+  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${DEV_DB_PASSWORD:-dev_db_password}@tcp(localhost:${MYSQL_DEV_HOST_PORT})/${DEV_DB_NAME}?parseTime=true\"|" \
+  -e "s|^\([[:space:]]*host:\).*|\1 \"localhost\"|" \
+  -e "s|^\([[:space:]]*port:\).*|\1 ${MYSQL_DEV_HOST_PORT}|" \
+  -e "s|^\([[:space:]]*user:\).*|\1 \"${DB_USER}\"|" \
+  -e "s|^\([[:space:]]*password:\).*|\1 \${DEV_DB_PASSWORD:-dev_db_password}|" \
+  -e "s|^\([[:space:]]*dbname:\).*|\1 \"${DEV_DB_NAME}\"|" \
+  -e "s|^\([[:space:]]*sslmode:\).*|\1 disable|" \
+  -e "s|^\([[:space:]]*redis_addr:\).*|\1 \"localhost:${REDIS_DEV_HOST_PORT}\"|" \
+  -e "s|^\([[:space:]]*redis_password:\).*|\1 \"\${REDIS_PASSWORD:-redis_password}\"|" \
   "$CONFIG_ENV/dev.yml"
 
 # Update production config  
 sed "${SED_INPLACE[@]}" \
-  -e "s|host:.*|host: \"postgres\"|" \
-  -e "s|port:.*|port: 5432|" \
-  -e "s|user:.*|user: \"$PROD_DB_USER\"|" \
-  -e "s|password:.*|password: \${PROD_DB_PASSWORD:-prod_db_password}|" \
-  -e "s|dbname:.*|dbname: \"$PROD_DB_NAME\"|" \
-  -e "s|sslmode:.*|sslmode: require|" \
+  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:${MYSQL_DEV_PROD_HOST_PORT})/${PROD_DB_NAME}?parseTime=true\"|" \
+  -e "s|^\([[:space:]]*host:\).*|\1 \"mysql\"|" \
+  -e "s|^\([[:space:]]*port:\).*|\1 ${MYSQL_DEV_PROD_HOST_PORT}|" \
+  -e "s|^\([[:space:]]*user:\).*|\1 \"${DB_USER}\"|" \
+  -e "s|^\([[:space:]]*password:\).*|\1 \${PROD_DB_PASSWORD:-prod_db_password}|" \
+  -e "s|^\([[:space:]]*dbname:\).*|\1 \"${PROD_DB_NAME}\"|" \
+  -e "s|^\([[:space:]]*sslmode:\).*|\1 require|" \
+  -e "s|^\([[:space:]]*redis_addr:\).*|\1 \"redis:${REDIS_DEV_CONTAINER_PORT}\"|" \
+  -e "s|^\([[:space:]]*redis_password:\).*|\1 \"\${REDIS_PASSWORD:-redis_password}\"|" \
   "$CONFIG_ENV/prod.yml"
 
 log "✅ Configuration files updated"
@@ -196,8 +232,11 @@ log "✅ Setup completed successfully!"
 
 echo -e "\nNext steps:"
 echo ""
-echo "1. 📡 Initialize docker-compose"
+echo "1. 📡 Initialize containers:"
 echo "   ./scripts/init.sh"
 echo ""
-echo "1. Initialize database:"
+echo "2. 🛠️ Initialize database:"
 echo "   ./scripts/migrate.sh"
+echo ""
+echo "3. 🚀 Run the application:"
+echo "   The service will be available at http://localhost:$APP_DEV_HOST_PORT"

@@ -1,9 +1,12 @@
 # prod.yml
 database:
-  host: "postgres"
-  port: 5432
-  dbname: "authserviceprod"
-  password: ${PROD_DB_PASSWORD:-prod_db_password}
+  mysql_dsn: "appuser:${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:3308)/authserviceprod?parseTime=true"
+  host: "mysql"
+  port: 3308
   user: "appuser"
+  password: ${PROD_DB_PASSWORD:-prod_db_password}
+  dbname: "authserviceprod"
   sslmode: require
   migrate: false
+  redis_addr: "redis:6379"
+  redis_password: "${REDIS_PASSWORD:-redis_password}"

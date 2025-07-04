@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o authentication-service ./c
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates postgresql-client && \
+RUN apk add --no-cache ca-certificates postgresql-client mysql-client && \
     adduser -D -g '' appuser
 
 # RUN adduser -D -g '' appuser
@@ -30,13 +30,16 @@ USER appuser
 WORKDIR /home/appuser
 
 EXPOSE 8080
+EXPOSE 3388
+EXPOSE 3306
+EXPOSE 3308
 EXPOSE 6379
 
 # Copy binary and migrations
 COPY --from=builder --chown=appuser /app/authentication-service .
 COPY --from=builder --chown=appuser /app/migrations ./migrations
 
-# COPY --from=builder /app/migrations ./migrations
+
 # Create directory for certificates
 RUN mkdir -p /home/appuser/cockroach/certs
 

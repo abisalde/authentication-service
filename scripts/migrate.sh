@@ -5,7 +5,7 @@ set -eo pipefail
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 MIGRATION_DIR="$PROJECT_ROOT/migrations"
 CONFIG_DIR="$PROJECT_ROOT/internal/configs"
-CERTS_DIR="$PROJECT_ROOT/scripts/cockroach/certs"
+SECRETS_DIR="$PROJECT_ROOT/secrets"
 TIMEOUT_SECONDS=60  # Increased timeout
 
 # --------------------------
@@ -26,43 +26,32 @@ load_config() {
     exit 1
   fi
 
+  # Load password from file if not set
+  if [ "$env" = "dev" ] && [ -z "${DEV_DB_PASSWORD}" ] && [ -f "$SECRETS_DIR/.dev_db_password" ]; then
+    export DEV_DB_PASSWORD=$(cat "$SECRETS_DIR/.dev_db_password")
+  elif [ "$env" = "prod" ] && [ -z "${PROD_DB_PASSWORD}" ] && [ -f "$SECRETS_DIR/.prod_db_password" ]; then
+    export PROD_DB_PASSWORD=$(cat "$SECRETS_DIR/.prod_db_password")
+  fi
 
-  RAW_PASSWORD=$(yq e '.database.password' "$config_file")
+  # Extract MySQL configuration directly (safer than parsing DSN)
+  export DB_HOST=$(yq e '.database.host' "$config_file" | tr -d '"')
+  export DB_PORT=$(yq e '.database.port' "$config_file" | tr -d '"')
+  export DB_USER=$(yq e '.database.user' "$config_file" | tr -d '"')
+  export DB_NAME=$(yq e '.database.dbname' "$config_file" | tr -d '"')
 
-  if [[ "$RAW_PASSWORD" == \${* ]]; then
-    # Extract variable name (e.g. DEV_DB_PASSWORD)
-    VAR_NAME=$(echo "$RAW_PASSWORD" | sed -E 's/^\$\{([A-Za-z_][A-Za-z0-9_]*)[:-].*$/\1/')
-    VAR_NAME_LOWER=$(echo "$VAR_NAME" | tr '[:upper:]' '[:lower:]')
-    PASSWORD_FILE="$CERTS_DIR/.${VAR_NAME_LOWER}"
-
-  if [ -f "$PASSWORD_FILE" ]; then
-    export DB_PASSWORD=$(<"$PASSWORD_FILE")
+  # Use password from environment or config
+  if [ "$env" = "dev" ]; then
+    export DB_PASSWORD="${DEV_DB_PASSWORD:-$(yq e '.database.password' "$config_file" | sed "s/\${DEV_DB_PASSWORD:-dev_db_password}/dev_db_password/")}"
   else
-    # Extract default value (e.g. dev_db_password)
-    DEFAULT_VALUE=$(echo "$RAW_PASSWORD" | sed -n 's/.*:-\([^}]*\)}/\1/p')
-    export DB_PASSWORD="${DEFAULT_VALUE:-}"
-  fi
-  else
-    export DB_PASSWORD="$RAW_PASSWORD"
+    export DB_PASSWORD="${PROD_DB_PASSWORD:-$(yq e '.database.password' "$config_file" | sed "s/\${PROD_DB_PASSWORD:-prod_db_password}/prod_db_password/")}"
   fi
 
- 
-    log "Looking for password file: $PASSWORD_FILE"
-
-
-
-  
-   # Extract database configuration
-  export DB_HOST=$(yq e '.database.host' "$config_file")
-  export DB_PORT=$(yq e '.database.port' "$config_file")
-  export DB_USER=$(yq e '.database.user' "$config_file")
-  export DB_NAME=$(yq e '.database.dbname' "$config_file")
-  export DB_SSLMODE=$(yq e '.database.sslmode' "$config_file")
-
-  # Handle environment variable substitution in password
-  if [[ "$DB_PASSWORD" == \${* ]]; then
-    export DB_PASSWORD=$(eval echo "$DB_PASSWORD")
+  # Force DB_HOST to 127.0.0.1 if it's set to localhost (fixes MySQL user@host issue)
+  if [ "$DB_HOST" = "localhost" ]; then
+    export DB_HOST="127.0.0.1"
   fi
+
+  log "Using connection: mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p[hidden] $DB_NAME"
 
   # Verify all required variables are set
   if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ] || [ -z "$DB_USER" ] || [ -z "$DB_NAME" ]; then
@@ -74,19 +63,19 @@ load_config() {
 wait_for_db() {
   local timeout=${1:-$TIMEOUT_SECONDS}
   local attempt=0
-  
+
   log "⏳ Waiting for database to be ready (timeout: ${timeout}s)..."
   log "ℹ️ Trying connection to: host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$DB_NAME"
 
-  until PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" >/dev/null 2>&1 || \
-        PGPASSWORD="$DB_PASSWORD" psql -h "127.0.0.1" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" >/dev/null 2>&1; do
+  until mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $timeout ]; then
       log "❌ Database connection timed out"
       log "💡 Troubleshooting tips:"
-      log "1. Verify PostgreSQL ports are properly exposed (5432:5432)"
-      log "2. Try connecting manually with:"
-      log "   PGPASSWORD=\$(cat scripts/cockroach/certs/.dev_db_password) psql -h 127.0.0.1 -p 5432 -U root -d authservicelocal -c \"SELECT 1\""
+      log "1. Verify MySQL ports are properly exposed (e.g., 3388:3306)"
+      log "2. Check if MySQL is running: docker ps"
+      log "3. Try connecting manually with:"
+      log "   mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p\$DB_PASSWORD -e \"SELECT 1\""
       exit 1
     fi
     sleep 1
@@ -95,17 +84,15 @@ wait_for_db() {
 
 run_migrations() {
   local migration_files=($(ls "$MIGRATION_DIR"/*.up.sql | sort))
-  
   for file in "${migration_files[@]}"; do
     log "Applying $(basename "$file")"
-    PGPASSWORD=$(cat scripts/cockroach/certs/.dev_db_password) psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-      -v ON_ERROR_STOP=1 \
-      -f "$file" || {
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$file" || {
       log "❌ Migration failed: $(basename "$file")"
       exit 1
     }
   done
 }
+
 # --------------------------
 # Main Script
 # --------------------------
@@ -122,11 +109,9 @@ fi
 # Load configuration
 load_config "$ENVIRONMENT"
 
-
-# Right before the wait_for_db call add:
+# Debug connection attempt
 log "Debug connection attempt:"
-PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" || true
-PGPASSWORD="$DB_PASSWORD" psql -h "127.0.0.1" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" || true
+mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" || true
 
 # Wait for database connection
 wait_for_db
