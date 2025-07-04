@@ -91,5 +91,9 @@ debug
 tmp/
 
 # Certificate files
-/cockroach/certs/*
-!/cockroach/certs/README.md
+/scripts/cockroach/certs/*
+!/scripts/cockroach/certs/README.md
+/deployments/docker-compose.override.yml
+
+# Secrets files
+/secrets/*

@@ -1,12 +1,12 @@
-# File: authentication-service/internal/configs/dev.yml
-
+# dev.yml
 database:
+  mysql_dsn: "appuser:${DEV_DB_PASSWORD:-dev_db_password}@tcp(localhost:3388)/authservicelocal?parseTime=true"
   host: "localhost"
-  port: 26257
+  port: 3388
   user: "appuser"
-  name: "auth_service_local"
-  sslmode: "verify-full"
-  sslrootcert: "./cockroach/certs/ca.crt"
-  sslcert: "./cockroach/certs/client.root.crt"
-  sslkey: "./cockroach/certs/client.root.key"
+  password: ${DEV_DB_PASSWORD:-dev_db_password}
+  dbname: "authservicelocal"
+  sslmode: disable
   migrate: true
+  redis_addr: "localhost:6388"
+  redis_password: "${REDIS_PASSWORD:-redis_password}"

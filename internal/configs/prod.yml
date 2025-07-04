@@ -1,11 +1,12 @@
 # prod.yml
 database:
-  host: "cockroachdb"
-  port: 26257
+  mysql_dsn: "appuser:${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:3308)/authserviceprod?parseTime=true"
+  host: "mysql"
+  port: 3308
   user: "appuser"
-  name: "auth_service_prod"
-  sslmode: "verify-full"
-  sslrootcert: "/run/secrets/ca.crt"
-  sslcert: "/run/secrets/client.auth_user.crt"
-  sslkey: "/run/secrets/client.auth_user.key"
+  password: ${PROD_DB_PASSWORD:-prod_db_password}
+  dbname: "authserviceprod"
+  sslmode: require
   migrate: false
+  redis_addr: "redis:6379"
+  redis_password: "${REDIS_PASSWORD:-redis_password}"
