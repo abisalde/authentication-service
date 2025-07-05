@@ -1,0 +1,28 @@
+input RegisterInput {
+	email: String!
+	password: String!
+}
+
+input LoginInput {
+	email: String!
+	password: String!
+}
+
+type AuthPayload {
+	token: String!
+	user: User!
+}
+
+enum AuthProvider {
+	EMAIL
+	GOOGLE
+	FACEBOOK
+}
+
+extend type Mutation {
+	register(input: RegisterInput!): AuthPayload!
+	login(input: LoginInput!): AuthPayload!
+	googleLogin(code: String!): AuthPayload!
+	facebookLogin(code: String!): AuthPayload!
+	logout: Boolean!
+}

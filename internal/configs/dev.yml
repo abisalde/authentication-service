@@ -8,5 +8,7 @@ database:
   dbname: "authservicelocal"
   sslmode: disable
   migrate: true
+
+redis:
   redis_addr: "localhost:6388"
   redis_password: "${REDIS_PASSWORD:-redis_password}"
