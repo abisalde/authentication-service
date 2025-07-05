@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -92,8 +91,9 @@ func main() {
 		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 	}))
 	auth_service.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:8080",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
 	auth_service.All("/graphql", func(c *fiber.Ctx) error {
@@ -103,10 +103,17 @@ func main() {
 		return adaptor.HTTPHandler(srv)(c)
 	})
 
+	auth_service.Get("/health", func(c *fiber.Ctx) error {
+		if err := db.HealthCheck(context.Background()); err != nil {
+			return c.Status(503).SendString("UNHEALTHY")
+		}
+		return c.SendString("OK")
+	})
+
 	auth_service.Get("/", adaptor.HTTPHandlerFunc(
 		playground.ApolloSandboxHandler("Authentication Service Playground", "/graphql"),
 	))
 
-	log.Printf("Hello, Authentication MicroService from Docker <3; 🚀 at http://localhost:%p", httpPort)
-	log.Fatal(http.ListenAndServe(":"+httpPort, nil))
+	log.Printf("Hello, Authentication MicroService from Docker <3; 🚀 at http://localhost:%s", httpPort)
+	log.Fatal(auth_service.Listen(":" + httpPort))
 }

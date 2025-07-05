@@ -29,21 +29,27 @@ type Database struct {
 }
 
 func Connect(cfg *configs.Config) (*Database, error) {
-	clientOnce.Do(func() {
+	var (
+		sqlDB    *sql.DB
+		dbClient *ent.Client
+	)
 
-		sqlDB, err := initDatabase(cfg)
+	clientOnce.Do(func() {
+		var err error
+		sqlDB, err = initDatabase(cfg)
 		if err != nil {
-			log.Fatalf("🛑 Database initialization failed %v", err)
+			initErr = fmt.Errorf("🛑 Database initialization failed: %w", err)
 			return
 		}
 
 		drv := entsql.OpenDB(dialect.MySQL, sqlDB)
-		client = ent.NewClient(ent.Driver(drv), ent.Debug(), ent.Log(log.Print))
+		dbClient = ent.NewClient(ent.Driver(drv), ent.Debug(), ent.Log(log.Print))
 
 		if cfg.DB.Migrate {
-			if err := migrate(context.Background(), client); err != nil {
+			if err := migrate(context.Background(), dbClient); err != nil {
 				initErr = fmt.Errorf("🛠️ Database migration failed: %w", err)
-				_ = client.Close()
+				_ = dbClient.Close()
+				_ = sqlDB.Close()
 				return
 			}
 		}
@@ -54,9 +60,9 @@ func Connect(cfg *configs.Config) (*Database, error) {
 	}
 
 	return &Database{
-		Client: client,
+		Client: dbClient,
 		config: cfg,
-		SQLDB:  &sql.DB{},
+		SQLDB:  sqlDB,
 	}, nil
 }
 
@@ -75,14 +81,24 @@ func (db *Database) Close() error {
 }
 
 func migrate(ctx context.Context, client *ent.Client) error {
+	_, err := client.User.Query().Exist(ctx)
+	if err != nil {
+
+		return client.Schema.Create(
+			ctx,
+			schema.WithDropIndex(true),
+			schema.WithDropColumn(true),
+			schema.WithForeignKeys(true),
+		)
+	}
+
 	return client.Schema.Create(
 		ctx,
-		schema.WithDropIndex(true),
-		schema.WithDropColumn(true),
+		schema.WithDropIndex(false),
+		schema.WithDropColumn(false),
 		schema.WithForeignKeys(true),
 	)
 }
-
 func initDatabase(cfg *configs.Config) (*sql.DB, error) {
 
 	sqlDB, err := sql.Open(dialect.MySQL, cfg.SQL_DSB())
@@ -107,14 +123,24 @@ func initDatabase(cfg *configs.Config) (*sql.DB, error) {
 }
 
 func (db *Database) HealthCheck(ctx context.Context) error {
-	sqlDB := db.SQLDB
-	if sqlDB == nil {
-		return fmt.Errorf("sql.DB is not initialized")
+	if db.SQLDB == nil {
+		return fmt.Errorf("🎛️ Database connection not initialized")
 	}
+
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 	}
-	return sqlDB.PingContext(ctx)
+
+	if err := db.SQLDB.PingContext(ctx); err != nil {
+		return fmt.Errorf("🕹️ Database ping failed: %w", err)
+	}
+
+	_, err := db.SQLDB.ExecContext(ctx, "SELECT 1 FROM users LIMIT 1")
+	if err != nil {
+		return fmt.Errorf("🩸 Database schema verification failed: %w", err)
+	}
+
+	return nil
 }

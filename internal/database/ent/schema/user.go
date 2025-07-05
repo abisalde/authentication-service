@@ -16,6 +16,7 @@ type User struct {
 // Fields of the User.
 func (User) Fields() []ent.Field {
 	return []ent.Field{
+		field.Int64("id").StorageKey("id"),
 		field.String("email").Unique(),
 		field.String("password_hash").Sensitive(),
 		field.String("oauth_id").Optional(),
