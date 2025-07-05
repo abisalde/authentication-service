@@ -86,6 +86,8 @@ MYSQL_DEV_HOST_PORT=$MYSQL_DEV_HOST_PORT
 MYSQL_DEV_PROD_HOST_PORT=$MYSQL_DEV_PROD_HOST_PORT
 REDIS_DEV_HOST_PORT=$REDIS_DEV_HOST_PORT
 APP_DEV_HOST_PORT=$APP_DEV_HOST_PORT
+PORT=$APP_DEV_HOST_PORT
+APP_ENV=development
 EOF
 
 
@@ -104,9 +106,9 @@ EOF
 
 
 # 5. Generate Docker Compose override
-log "🐳 Generating Docker Compose override..."
+log "🐳 Generating Docker Compose override prod..."
 mkdir -p "$DEPLOY_DIR"
-cat > "$DEPLOY_DIR/docker-compose.override.yml" <<EOF
+cat > "$DEPLOY_DIR/docker-compose.prod.yml" <<EOF
 services:
   mysql:
     image: mysql:lts

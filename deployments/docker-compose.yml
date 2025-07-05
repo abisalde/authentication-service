@@ -2,11 +2,11 @@ services:
   auth-service:
     build:
       context: ../
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - '8080:8080'
     networks:
-      - auth-net
+      - auth-net-dev
     environment:
       DB_HOST: mysql-dev
       DB_PORT: 3306
@@ -17,9 +17,15 @@ services:
       REDIS_ARGS: --save 1200 32
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
       REDIS_URL: redis://default:$$(cat /run/secrets/redis_password)@redis:6379
+      ENVIRONMENT: development
+      AIR_WORKSPACE: /app
     secrets:
       - dev_db_password
       - redis_password
+    volumes:
+      - ../:/app
+      - ../internal/configs/air.toml:/app/.air.toml
+      - go-mod:/go/pkg/mod
     depends_on:
       mysql-dev:
         condition: service_healthy
@@ -42,9 +48,19 @@ services:
       - mysql_dev_data:/var/lib/mysql
       - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - auth-net
+      - auth-net-dev
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-h',
+          'localhost',
+          '-u',
+          'appuser',
+          '-p$$(cat /run/secrets/dev_db_password)',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -63,9 +79,16 @@ services:
     ports:
       - '6388:6379'
     networks:
-      - auth-net
+      - auth-net-dev
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test:
+        [
+          'CMD',
+          'redis-cli',
+          '-a',
+          '$$(cat /run/secrets/redis_password)',
+          'ping',
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -73,6 +96,7 @@ services:
 volumes:
   mysql_dev_data:
   redis_data:
+  go-mod:
 
 secrets:
   dev_db_password:
@@ -81,5 +105,5 @@ secrets:
     file: ../secrets/.redis_password
 
 networks:
-  auth-net:
+  auth-net-dev:
     driver: bridge

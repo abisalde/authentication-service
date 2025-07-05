@@ -8,5 +8,7 @@ database:
   dbname: "authserviceprod"
   sslmode: require
   migrate: false
+
+redis:
   redis_addr: "redis:6379"
   redis_password: "${REDIS_PASSWORD:-redis_password}"

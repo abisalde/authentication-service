@@ -1,0 +1,42 @@
+# Build stage
+
+FROM golang:1.24-alpine AS builder
+
+# Set destination for COPY
+WORKDIR /app
+
+# Install git for go modules if private repos
+RUN apk add --no-cache git gcc musl-dev bash
+
+# Install air for hot reload
+RUN go install github.com/air-verse/air@latest
+
+# Download Go modules
+COPY go.mod go.sum ./
+RUN go mod download
+
+
+# Copy air config from internal/configs
+COPY internal/configs/air.toml .air.toml
+
+
+
+# Copy the entire project
+COPY . .
+
+ENV AIR_WORKSPACE=/app \
+    ENVIRONMENT=development
+
+# Create directory for air builds
+RUN mkdir -p /app/tmp
+
+EXPOSE 8080
+EXPOSE 3388
+EXPOSE 3306
+EXPOSE 3308
+EXPOSE 6379
+EXPOSE 3000
+
+
+
+CMD ["air", "-c", "/app/.air.toml"]

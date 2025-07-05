@@ -37,6 +37,7 @@ EXPOSE 6379
 
 # Copy binary and migrations
 COPY --from=builder --chown=appuser /app/authentication-service .
+COPY --from=builder /app/configs ./configs
 COPY --from=builder --chown=appuser /app/migrations ./migrations
 
 

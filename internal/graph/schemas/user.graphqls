@@ -1,0 +1,10 @@
+type User {
+	id: ID!
+	email: String!
+	fullName: String
+	provider: AuthProvider!
+}
+
+extend type Query {
+	profile: User!
+}

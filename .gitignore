@@ -15,18 +15,41 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
+
+# Go build artifacts
+/bin/
+/build/
+/dist/
 
 # Go workspace file
 go.work
 go.work.sum
 
-# Ent
-ent/generate.go
-ent/generated/
+# Ent generated files
+/internal/database/ent/ent.go
+/internal/database/ent/enttest/
+/internal/database/ent/migrate/
+/internal/database/ent/schema/*_gen.go
+/internal/database/ent/entc.go
+/internal/database/ent/generate.go
+/internal/database/ent/tmp/
+internal/database/ent/ent.go
+internal/database/ent/enttest/
+internal/database/ent/migrate/
 
-# Graph
-graph/generated/
+# gqlgen generated files
+/internal/graph/generated.go
+/internal/graph/models/models_gen.go
+/internal/graph/model/models_gen.go
+
+# gqlgen config output
+gqlgen.yml.lock
+
+# Coverage files
+*.coverprofile
+coverage.out
+
 
 # Database files
 /data/
@@ -69,8 +92,8 @@ coverage.txt
 profile.out
 
 # Ent generated files
-/ent/generate.go
-/ent/generated/
+internal/database/ent/generate.go
+internal/database/ent/generated/
 
 # gqlgen generated files
 /graph/generated/
@@ -81,10 +104,6 @@ profile.out
 # Log files
 *.log
 
-# Binary output
-*.exe
-*.test
-*.out
 
 # Development artifacts
 debug
@@ -93,7 +112,12 @@ tmp/
 # Certificate files
 /scripts/cockroach/certs/*
 !/scripts/cockroach/certs/README.md
-/deployments/docker-compose.override.yml
+/deployments/docker-compose.prod.yml
 
 # Secrets files
 /secrets/*
+
+/gen
+
+# Node
+node_modules/
