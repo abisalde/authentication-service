@@ -51,10 +51,8 @@ func Load(env string) (*Config, error) {
 		return nil, err
 	}
 
-	// Load environment-specific password
 	cfg.DB.Password = getPassword(env)
 
-	// Expand all environment variables in the config
 	expandConfig(&cfg, env)
 
 	log.Printf("This is the password: %v", cfg.DB.Password)
@@ -63,8 +61,6 @@ func Load(env string) (*Config, error) {
 }
 
 func (c *Config) SQL_DSB() string {
-	log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name,
@@ -72,7 +68,6 @@ func (c *Config) SQL_DSB() string {
 }
 
 func getPassword(env string) string {
-	// Determine password variable and secret file based on environment
 	var (
 		envVarName string
 		secretFile string
@@ -82,25 +77,17 @@ func getPassword(env string) string {
 	case "production":
 		envVarName = "PROD_DB_PASSWORD"
 		secretFile = ".prod_db_password"
-	default: // development
+	default:
 		envVarName = "DEV_DB_PASSWORD"
 		secretFile = ".dev_db_password"
 	}
 
-	// Password lookup priority:
-	// 1. Direct environment variable
-	// 2. .env file
-	// 3. Environment-specific secrets file
-	// (YAML config fallback is handled by os.ExpandEnv later)
-
 	password := ""
 
-	// 1. Check environment variable first
 	if pass := os.Getenv(envVarName); pass != "" {
 		password = pass
 	}
 
-	// 2. Fallback to .env file if not set
 	if password == "" {
 		if err := godotenv.Load(); err == nil {
 			if pass := os.Getenv(envVarName); pass != "" {
@@ -109,7 +96,6 @@ func getPassword(env string) string {
 		}
 	}
 
-	// 3. Fallback to secrets file
 	if password == "" {
 		secretPath := filepath.Join("..", "secrets", secretFile)
 		if data, err := os.ReadFile(secretPath); err == nil {
@@ -121,27 +107,24 @@ func getPassword(env string) string {
 }
 
 func expandConfig(cfg *Config, env string) {
-	// Determine the appropriate environment variable names
 	dbPassVar := "DEV_DB_PASSWORD"
 	if env == "production" {
 		dbPassVar = "PROD_DB_PASSWORD"
 	}
 
-	// Expand DB configuration using the correct variable name
 	cfg.DB.Password = os.Expand(cfg.DB.Password, func(key string) string {
-		if key == "DB_PASSWORD" { // Matches ${DB_PASSWORD} in YAML
+		if key == "DB_PASSWORD" {
 			return os.Getenv(dbPassVar)
 		}
 		return os.Getenv(key)
 	})
 
 	cfg.DB.MySQLDSN = os.Expand(cfg.DB.MySQLDSN, func(key string) string {
-		if key == "DB_PASSWORD" { // Matches ${DB_PASSWORD} in YAML
+		if key == "DB_PASSWORD" {
 			return os.Getenv(dbPassVar)
 		}
 		return os.Getenv(key)
 	})
 
-	// Expand Redis configuration
 	cfg.Redis.Password = os.ExpandEnv(cfg.Redis.Password)
 }
