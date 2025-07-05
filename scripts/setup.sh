@@ -30,7 +30,7 @@ log() {
 }
 
 generate_dev_password() {
-  < /dev/urandom tr -dc 'A-Za-z0-9!#$%&()*+,-./:;<=>?@[\]^_{|}~' | head -c 32 2>/dev/null || true
+  < /dev/urandom tr -dc 'A-Za-z0-9!#$%&()*+,-./;<=>?[]^_{|}~' | head -c 32 2>/dev/null || true
 }
 
 generate_prod_password() {
@@ -62,7 +62,7 @@ verify_directories
 
 
 # Store password securely
-log "🚀 Setting up PostgreSQL + Redis environment"
+log "🚀 Setting up MYSQL + Redis environment"
 
 # Create directories
 mkdir -p "$SECRETS_DIR"
@@ -203,8 +203,8 @@ fi
 
 # Update development config
 sed "${SED_INPLACE[@]}" \
-  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${DEV_DB_PASSWORD:-dev_db_password}@tcp(localhost:${MYSQL_DEV_HOST_PORT})/${DEV_DB_NAME}?parseTime=true\"|" \
-  -e "s|^\([[:space:]]*host:\).*|\1 \"localhost\"|" \
+  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${DEV_DB_PASSWORD:-dev_db_password}@tcp(mysql-dev:${MYSQL_DEV_HOST_PORT})/${DEV_DB_NAME}?parseTime=true\"|" \
+  -e "s|^\([[:space:]]*host:\).*|\1 \"mysql-dev\"|" \
   -e "s|^\([[:space:]]*port:\).*|\1 ${MYSQL_DEV_HOST_PORT}|" \
   -e "s|^\([[:space:]]*user:\).*|\1 \"${DB_USER}\"|" \
   -e "s|^\([[:space:]]*password:\).*|\1 \${DEV_DB_PASSWORD:-dev_db_password}|" \

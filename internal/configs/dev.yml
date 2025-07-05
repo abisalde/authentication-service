@@ -1,7 +1,7 @@
 # dev.yml
 database:
-  mysql_dsn: "appuser:${DEV_DB_PASSWORD:-dev_db_password}@tcp(localhost:3388)/authservicelocal?parseTime=true"
-  host: "localhost"
+  mysql_dsn: "appuser:${DEV_DB_PASSWORD:-dev_db_password}@tcp(mysql-dev:3388)/authservicelocal?parseTime=true"
+  host: "mysql-dev"
   port: 3388
   user: "appuser"
   password: ${DEV_DB_PASSWORD:-dev_db_password}

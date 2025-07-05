@@ -34,7 +34,7 @@ load_config() {
   fi
 
   # Extract MySQL configuration directly (safer than parsing DSN)
-  export DB_HOST=$(yq e '.database.host' "$config_file" | tr -d '"')
+  export DB_HOST="localhost"
   export DB_PORT=$(yq e '.database.port' "$config_file" | tr -d '"')
   export DB_USER=$(yq e '.database.user' "$config_file" | tr -d '"')
   export DB_NAME=$(yq e '.database.dbname' "$config_file" | tr -d '"')

@@ -55,16 +55,16 @@ func Load(env string) (*Config, error) {
 
 	expandConfig(&cfg, env)
 
-	log.Printf("This is the password: %v", cfg.DB.Password)
-
 	return &cfg, nil
 }
 
 func (c *Config) SQL_DSB() string {
+	log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name,
-	)
+		c.DB.User, c.DB.Password, c.DB.Host, 3306, c.DB.Name,
+	) // We change the PORT to 3306 when connecting via Docker instead of c.DB.Port
 }
 
 func getPassword(env string) string {
