@@ -19,6 +19,9 @@ RUN go mod download
 # Copy air config from internal/configs
 COPY internal/configs/air.toml .air.toml
 
+# Copy Files
+
+
 
 
 # Copy the entire project

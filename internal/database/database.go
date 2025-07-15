@@ -41,12 +41,14 @@ func Connect(cfg *configs.Config) (*Database, error) {
 			initErr = fmt.Errorf("🛑 Database initialization failed: %w", err)
 			return
 		}
+		env := cfg.Env.CurrentEnv
+		isDev := env != "production"
 
 		drv := entsql.OpenDB(dialect.MySQL, sqlDB)
 		dbClient = ent.NewClient(ent.Driver(drv), ent.Debug(), ent.Log(log.Print))
 
 		if cfg.DB.Migrate {
-			if err := migrate(context.Background(), dbClient); err != nil {
+			if err := migrate(context.Background(), dbClient, isDev); err != nil {
 				initErr = fmt.Errorf("🛠️ Database migration failed: %w", err)
 				_ = dbClient.Close()
 				_ = sqlDB.Close()
@@ -80,10 +82,8 @@ func (db *Database) Close() error {
 	return nil
 }
 
-func migrate(ctx context.Context, client *ent.Client) error {
-	_, err := client.User.Query().Exist(ctx)
-	if err != nil {
-
+func migrate(ctx context.Context, client *ent.Client, isDev bool) error {
+	if isDev {
 		return client.Schema.Create(
 			ctx,
 			schema.WithDropIndex(true),
@@ -99,6 +99,7 @@ func migrate(ctx context.Context, client *ent.Client) error {
 		schema.WithForeignKeys(true),
 	)
 }
+
 func initDatabase(cfg *configs.Config) (*sql.DB, error) {
 
 	sqlDB, err := sql.Open(dialect.MySQL, cfg.SQL_DSB())
@@ -110,7 +111,7 @@ func initDatabase(cfg *configs.Config) (*sql.DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := sqlDB.PingContext(ctx); err != nil {

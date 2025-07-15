@@ -1,10 +1,101 @@
+"""
+Represents a user in the system.
+"""
 type User {
 	id: ID!
+	"User's primary email (must be unique)"
 	email: String!
-	fullName: String
+	"Oauth Provider or RegularEmailAndPassword"
 	provider: AuthProvider!
+	firstName: String!
+	lastName: String!
+	createdAt: Time!
+	updatedAt: Time!
+	"OAuth provider ID (if applicable)"
+	oauthId: String
+	address: UserAddress!
+	phoneNumber: String
+	"USER or ADMIN"
+	role: UserRole!
+	isEmailVerified: Boolean!
+	termsAcceptedAt: Time
+	"USER opted in for marketing"
+	marketingOptIn: Boolean!
+	lastLoginAt: Time
+}
+
+"""
+Represents a user's address.
+"""
+type UserAddress {
+	streetName: String
+	city: String
+	state: String
+	zipCode: String
+	country: String
+}
+
+"""
+Update a User Address streetName, city, zipCode, country
+"""
+input UserAddressInput {
+	streetName: String @constraint(maxLength: 100)
+	city: String @constraint(maxLength: 50)
+	"Must match postal format for the country"
+	zipCode: String @constraint(maxLength: 20)
+	"Country of residence/stay"
+	country: String @constraint(maxLength: 160)
+	"State of country residence/stay"
+	state: String @constraint(maxLength: 100)
+}
+
+"""
+UserConnection, the edges and pageInfo
+"""
+type UserConnection {
+	edges: [UserEdge!]!
+	pageInfo: PageInfo!
+}
+
+type UserEdge {
+	node: User!
+	cursor: ID!
+}
+
+type PageInfo {
+	hasNextPage: Boolean!
+	hasPreviousPage: Boolean!
+	startCursor: ID
+	endCursor: ID
+}
+
+"""
+UserRole maybe ADMIN or USER
+"""
+enum UserRole {
+	ADMIN
+	USER
+}
+
+input UpdateProfileInput {
+	firstName: String! @constraint(minLength: 1, maxLength: 50)
+	lastName: String! @constraint(minLength: 1, maxLength: 50)
+	address: UserAddressInput
+	phoneNumber: String @constraint(pattern: "^\\+?[0-9\\-\\s]+$")
+	marketingOptIn: Boolean! @default(value: false)
+	termsAcceptedAt: Time
 }
 
 extend type Query {
-	profile: User!
+	"""
+	Logged in user profile details
+	"""
+	profile: User! @auth(requires: USER)
+	users(
+		role: UserRole
+		"Returns first N results"
+		first: Int = 25
+		"Cursor for pagination"
+		after: ID
+	): UserConnection! @auth(requires: ADMIN)
 }

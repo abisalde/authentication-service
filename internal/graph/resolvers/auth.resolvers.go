@@ -8,30 +8,56 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/abisalde/authentication-service/internal/graph"
 	"github.com/abisalde/authentication-service/internal/graph/model"
 )
 
 // Register is the resolver for the register field.
-func (r *mutationResolver) Register(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Register - register"))
+func (r *mutationResolver) Register(ctx context.Context, input model.RegisterInput) (*model.RegisterResponse, error) {
+	return r.Resolver.registerHandler.Register(ctx, input)
 }
 
 // Login is the resolver for the login field.
-func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
+func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.LoginResponse, error) {
+	return r.Resolver.loginHandler.EmailLogin(ctx, input)
 }
 
-// GoogleLogin is the resolver for the googleLogin field.
-func (r *mutationResolver) GoogleLogin(ctx context.Context, code string) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: GoogleLogin - googleLogin"))
-}
-
-// FacebookLogin is the resolver for the facebookLogin field.
-func (r *mutationResolver) FacebookLogin(ctx context.Context, code string) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: FacebookLogin - facebookLogin"))
+// OauthLogin is the resolver for the oauthLogin field.
+func (r *mutationResolver) OauthLogin(ctx context.Context, input model.OAuthLoginInput) (*model.LoginResponse, error) {
+	panic(fmt.Errorf("not implemented: OauthLogin - oauthLogin"))
 }
 
 // Logout is the resolver for the logout field.
 func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
-	panic(fmt.Errorf("not implemented: Logout - logout"))
+	return r.Resolver.loginHandler.ProcessLogout(ctx)
 }
+
+// UpdateProfile is the resolver for the updateProfile field.
+func (r *mutationResolver) UpdateProfile(ctx context.Context, input model.UpdateProfileInput) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: UpdateProfile - updateProfile"))
+}
+
+// ChangePassword is the resolver for the changePassword field.
+func (r *mutationResolver) ChangePassword(ctx context.Context, input *model.ChangePasswordInput) (bool, error) {
+	panic(fmt.Errorf("not implemented: ChangePassword - changePassword"))
+}
+
+// VerifyAccount is the resolver for the verifyAccount field.
+func (r *mutationResolver) VerifyAccount(ctx context.Context, input model.AccountVerification) (bool, error) {
+	return r.Resolver.registerHandler.VerifyUserEmail(ctx, input)
+}
+
+// ResendVerificationCode is the resolver for the resendVerificationCode field.
+func (r *mutationResolver) ResendVerificationCode(ctx context.Context, input model.ResendVerificationCode) (bool, error) {
+	return r.Resolver.registerHandler.ResendVerificationCodeEmail(ctx, input)
+}
+
+// ID is the resolver for the id field.
+func (r *publicUserResolver) ID(ctx context.Context, obj *model.PublicUser) (string, error) {
+	return "0", nil
+}
+
+// PublicUser returns graph.PublicUserResolver implementation.
+func (r *Resolver) PublicUser() graph.PublicUserResolver { return &publicUserResolver{r} }
+
+type publicUserResolver struct{ *Resolver }
