@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/abisalde/authentication-service/internal/database/ent/user"
+	"github.com/abisalde/authentication-service/internal/database/ent/useraddress"
 )
 
 // User is the model entity for the User schema.
@@ -17,19 +18,71 @@ type User struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int64 `json:"id,omitempty"`
+	// CreatedAt holds the value of the "created_at" field.
+	CreatedAt time.Time `json:"createdAt"`
+	// UpdatedAt holds the value of the "updated_at" field.
+	UpdatedAt time.Time `json:"updatedAt"`
+	// DeletedAt holds the value of the "deleted_at" field.
+	DeletedAt *time.Time `json:"deletedAt"`
+	// StreetName holds the value of the "street_name" field.
+	StreetName string `json:"streetName"`
+	// City holds the value of the "city" field.
+	City string `json:"city,omitempty"`
+	// ZipCode holds the value of the "zip_code" field.
+	ZipCode string `json:"zipCode"`
+	// Country holds the value of the "country" field.
+	Country string `json:"country"`
+	// State holds the value of the "state" field.
+	State string `json:"state"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
 	// PasswordHash holds the value of the "password_hash" field.
 	PasswordHash string `json:"-"`
 	// OauthID holds the value of the "oauth_id" field.
-	OauthID string `json:"oauth_id,omitempty"`
+	OauthID string `json:"oauthId"`
 	// Provider holds the value of the "provider" field.
 	Provider user.Provider `json:"provider,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	// FirstName holds the value of the "first_name" field.
+	FirstName string `json:"firstName"`
+	// LastName holds the value of the "last_name" field.
+	LastName string `json:"lastName"`
+	// PhoneNumber holds the value of the "phone_number" field.
+	PhoneNumber string `json:"phoneNumber"`
+	// Role holds the value of the "role" field.
+	Role user.Role `json:"role,omitempty"`
+	// IsEmailVerified holds the value of the "is_email_verified" field.
+	IsEmailVerified bool `json:"isEmailVerified"`
+	// MarketingOptIn holds the value of the "marketing_opt_in" field.
+	MarketingOptIn bool `json:"marketingOptIn"`
+	// TermsAcceptedAt holds the value of the "terms_accepted_at" field.
+	TermsAcceptedAt *time.Time `json:"termsAcceptedAt"`
+	// LastLoginAt holds the value of the "last_login_at" field.
+	LastLoginAt *time.Time `json:"lastLoginAt"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges        UserEdges `json:"edges"`
+	user_address *int
 	selectValues sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Address holds the value of the address edge.
+	Address *UserAddress `json:"address"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// AddressOrErr returns the Address value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) AddressOrErr() (*UserAddress, error) {
+	if e.Address != nil {
+		return e.Address, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: useraddress.Label}
+	}
+	return nil, &NotLoadedError{edge: "address"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -37,12 +90,16 @@ func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case user.FieldIsEmailVerified, user.FieldMarketingOptIn:
+			values[i] = new(sql.NullBool)
 		case user.FieldID:
 			values[i] = new(sql.NullInt64)
-		case user.FieldEmail, user.FieldPasswordHash, user.FieldOauthID, user.FieldProvider:
+		case user.FieldStreetName, user.FieldCity, user.FieldZipCode, user.FieldCountry, user.FieldState, user.FieldEmail, user.FieldPasswordHash, user.FieldOauthID, user.FieldProvider, user.FieldFirstName, user.FieldLastName, user.FieldPhoneNumber, user.FieldRole:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTermsAcceptedAt, user.FieldLastLoginAt:
 			values[i] = new(sql.NullTime)
+		case user.ForeignKeys[0]: // user_address
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -64,6 +121,55 @@ func (u *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
 			u.ID = int64(value.Int64)
+		case user.FieldCreatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field created_at", values[i])
+			} else if value.Valid {
+				u.CreatedAt = value.Time
+			}
+		case user.FieldUpdatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
+			} else if value.Valid {
+				u.UpdatedAt = value.Time
+			}
+		case user.FieldDeletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field deleted_at", values[i])
+			} else if value.Valid {
+				u.DeletedAt = new(time.Time)
+				*u.DeletedAt = value.Time
+			}
+		case user.FieldStreetName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field street_name", values[i])
+			} else if value.Valid {
+				u.StreetName = value.String
+			}
+		case user.FieldCity:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field city", values[i])
+			} else if value.Valid {
+				u.City = value.String
+			}
+		case user.FieldZipCode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field zip_code", values[i])
+			} else if value.Valid {
+				u.ZipCode = value.String
+			}
+		case user.FieldCountry:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field country", values[i])
+			} else if value.Valid {
+				u.Country = value.String
+			}
+		case user.FieldState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field state", values[i])
+			} else if value.Valid {
+				u.State = value.String
+			}
 		case user.FieldEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field email", values[i])
@@ -88,17 +194,62 @@ func (u *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				u.Provider = user.Provider(value.String)
 			}
-		case user.FieldCreatedAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field created_at", values[i])
+		case user.FieldFirstName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field first_name", values[i])
 			} else if value.Valid {
-				u.CreatedAt = value.Time
+				u.FirstName = value.String
 			}
-		case user.FieldUpdatedAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
+		case user.FieldLastName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_name", values[i])
 			} else if value.Valid {
-				u.UpdatedAt = value.Time
+				u.LastName = value.String
+			}
+		case user.FieldPhoneNumber:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field phone_number", values[i])
+			} else if value.Valid {
+				u.PhoneNumber = value.String
+			}
+		case user.FieldRole:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field role", values[i])
+			} else if value.Valid {
+				u.Role = user.Role(value.String)
+			}
+		case user.FieldIsEmailVerified:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_email_verified", values[i])
+			} else if value.Valid {
+				u.IsEmailVerified = value.Bool
+			}
+		case user.FieldMarketingOptIn:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field marketing_opt_in", values[i])
+			} else if value.Valid {
+				u.MarketingOptIn = value.Bool
+			}
+		case user.FieldTermsAcceptedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field terms_accepted_at", values[i])
+			} else if value.Valid {
+				u.TermsAcceptedAt = new(time.Time)
+				*u.TermsAcceptedAt = value.Time
+			}
+		case user.FieldLastLoginAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_login_at", values[i])
+			} else if value.Valid {
+				u.LastLoginAt = new(time.Time)
+				*u.LastLoginAt = value.Time
+			}
+		case user.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field user_address", value)
+			} else if value.Valid {
+				u.user_address = new(int)
+				*u.user_address = int(value.Int64)
 			}
 		default:
 			u.selectValues.Set(columns[i], values[i])
@@ -111,6 +262,11 @@ func (u *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (u *User) Value(name string) (ent.Value, error) {
 	return u.selectValues.Get(name)
+}
+
+// QueryAddress queries the "address" edge of the User entity.
+func (u *User) QueryAddress() *UserAddressQuery {
+	return NewUserClient(u.config).QueryAddress(u)
 }
 
 // Update returns a builder for updating this User.
@@ -136,6 +292,32 @@ func (u *User) String() string {
 	var builder strings.Builder
 	builder.WriteString("User(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", u.ID))
+	builder.WriteString("created_at=")
+	builder.WriteString(u.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("updated_at=")
+	builder.WriteString(u.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := u.DeletedAt; v != nil {
+		builder.WriteString("deleted_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("street_name=")
+	builder.WriteString(u.StreetName)
+	builder.WriteString(", ")
+	builder.WriteString("city=")
+	builder.WriteString(u.City)
+	builder.WriteString(", ")
+	builder.WriteString("zip_code=")
+	builder.WriteString(u.ZipCode)
+	builder.WriteString(", ")
+	builder.WriteString("country=")
+	builder.WriteString(u.Country)
+	builder.WriteString(", ")
+	builder.WriteString("state=")
+	builder.WriteString(u.State)
+	builder.WriteString(", ")
 	builder.WriteString("email=")
 	builder.WriteString(u.Email)
 	builder.WriteString(", ")
@@ -147,11 +329,33 @@ func (u *User) String() string {
 	builder.WriteString("provider=")
 	builder.WriteString(fmt.Sprintf("%v", u.Provider))
 	builder.WriteString(", ")
-	builder.WriteString("created_at=")
-	builder.WriteString(u.CreatedAt.Format(time.ANSIC))
+	builder.WriteString("first_name=")
+	builder.WriteString(u.FirstName)
 	builder.WriteString(", ")
-	builder.WriteString("updated_at=")
-	builder.WriteString(u.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString("last_name=")
+	builder.WriteString(u.LastName)
+	builder.WriteString(", ")
+	builder.WriteString("phone_number=")
+	builder.WriteString(u.PhoneNumber)
+	builder.WriteString(", ")
+	builder.WriteString("role=")
+	builder.WriteString(fmt.Sprintf("%v", u.Role))
+	builder.WriteString(", ")
+	builder.WriteString("is_email_verified=")
+	builder.WriteString(fmt.Sprintf("%v", u.IsEmailVerified))
+	builder.WriteString(", ")
+	builder.WriteString("marketing_opt_in=")
+	builder.WriteString(fmt.Sprintf("%v", u.MarketingOptIn))
+	builder.WriteString(", ")
+	if v := u.TermsAcceptedAt; v != nil {
+		builder.WriteString("terms_accepted_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := u.LastLoginAt; v != nil {
+		builder.WriteString("last_login_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

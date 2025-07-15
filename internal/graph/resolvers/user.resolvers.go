@@ -8,37 +8,15 @@ import (
 	"context"
 	"fmt"
 
-	schemas "github.com/abisalde/authentication-service/internal/database/ent/schema"
-	"github.com/abisalde/authentication-service/internal/graph"
 	"github.com/abisalde/authentication-service/internal/graph/model"
 )
 
 // Profile is the resolver for the profile field.
-func (r *queryResolver) Profile(ctx context.Context) (*schemas.User, error) {
-	panic(fmt.Errorf("not implemented: Profile - profile"))
+func (r *queryResolver) Profile(ctx context.Context) (*model.User, error) {
+	return r.profileHandler.GetUserProfile(ctx)
 }
 
-// ID is the resolver for the id field.
-func (r *userResolver) ID(ctx context.Context, obj *schemas.User) (string, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+// Users is the resolver for the users field.
+func (r *queryResolver) Users(ctx context.Context, role *model.UserRole, first *int32, after *string) (*model.UserConnection, error) {
+	panic(fmt.Errorf("not implemented: Users - users"))
 }
-
-// Email is the resolver for the email field.
-func (r *userResolver) Email(ctx context.Context, obj *schemas.User) (string, error) {
-	panic(fmt.Errorf("not implemented: Email - email"))
-}
-
-// FullName is the resolver for the fullName field.
-func (r *userResolver) FullName(ctx context.Context, obj *schemas.User) (*string, error) {
-	panic(fmt.Errorf("not implemented: FullName - fullName"))
-}
-
-// Provider is the resolver for the provider field.
-func (r *userResolver) Provider(ctx context.Context, obj *schemas.User) (model.AuthProvider, error) {
-	panic(fmt.Errorf("not implemented: Provider - provider"))
-}
-
-// User returns graph.UserResolver implementation.
-func (r *Resolver) User() graph.UserResolver { return &userResolver{r} }
-
-type userResolver struct{ *Resolver }

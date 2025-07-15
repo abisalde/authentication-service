@@ -63,6 +63,8 @@ authentication-service/
     ├── README.md
     ├── scripts                             # Helper scripts ✅
     │   ├── migrate.sh                      # Script to run database migrations ✅
+    │   ├── run-service.sh                  # Script to run the service locally with Docker (e.g., `run-service.sh -d` to run docker)
+    │   ├── reset-cluster.sh                # Script to reset the Docker cluster
     │   └── setup.sh                        # Script to set up the development environment
     └── tools.go
 

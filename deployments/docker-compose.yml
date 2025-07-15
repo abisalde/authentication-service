@@ -73,8 +73,9 @@ services:
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
     secrets:
       - redis_password
-    command: redis-server --requirepass /run/secrets/redis_password
+    command: ['/redis-entrypoint.sh']
     volumes:
+      - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
     ports:
       - '6388:6379'

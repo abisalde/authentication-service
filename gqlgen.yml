@@ -131,8 +131,7 @@ autobind:
 models:
   User: 
     model:
-      - github.com/abisalde/authentication-service/internal/database/ent/schema.User
-      - github.com/abisalde/authentication-service/internal/graph/models.User
+      - github.com/abisalde/authentication-service/internal/graph/model.User
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.ID

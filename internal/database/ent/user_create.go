@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/abisalde/authentication-service/internal/database/ent/user"
+	"github.com/abisalde/authentication-service/internal/database/ent/useraddress"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -18,38 +19,6 @@ type UserCreate struct {
 	config
 	mutation *UserMutation
 	hooks    []Hook
-}
-
-// SetEmail sets the "email" field.
-func (uc *UserCreate) SetEmail(s string) *UserCreate {
-	uc.mutation.SetEmail(s)
-	return uc
-}
-
-// SetPasswordHash sets the "password_hash" field.
-func (uc *UserCreate) SetPasswordHash(s string) *UserCreate {
-	uc.mutation.SetPasswordHash(s)
-	return uc
-}
-
-// SetOauthID sets the "oauth_id" field.
-func (uc *UserCreate) SetOauthID(s string) *UserCreate {
-	uc.mutation.SetOauthID(s)
-	return uc
-}
-
-// SetNillableOauthID sets the "oauth_id" field if the given value is not nil.
-func (uc *UserCreate) SetNillableOauthID(s *string) *UserCreate {
-	if s != nil {
-		uc.SetOauthID(*s)
-	}
-	return uc
-}
-
-// SetProvider sets the "provider" field.
-func (uc *UserCreate) SetProvider(u user.Provider) *UserCreate {
-	uc.mutation.SetProvider(u)
-	return uc
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -80,10 +49,273 @@ func (uc *UserCreate) SetNillableUpdatedAt(t *time.Time) *UserCreate {
 	return uc
 }
 
+// SetDeletedAt sets the "deleted_at" field.
+func (uc *UserCreate) SetDeletedAt(t time.Time) *UserCreate {
+	uc.mutation.SetDeletedAt(t)
+	return uc
+}
+
+// SetNillableDeletedAt sets the "deleted_at" field if the given value is not nil.
+func (uc *UserCreate) SetNillableDeletedAt(t *time.Time) *UserCreate {
+	if t != nil {
+		uc.SetDeletedAt(*t)
+	}
+	return uc
+}
+
+// SetStreetName sets the "street_name" field.
+func (uc *UserCreate) SetStreetName(s string) *UserCreate {
+	uc.mutation.SetStreetName(s)
+	return uc
+}
+
+// SetNillableStreetName sets the "street_name" field if the given value is not nil.
+func (uc *UserCreate) SetNillableStreetName(s *string) *UserCreate {
+	if s != nil {
+		uc.SetStreetName(*s)
+	}
+	return uc
+}
+
+// SetCity sets the "city" field.
+func (uc *UserCreate) SetCity(s string) *UserCreate {
+	uc.mutation.SetCity(s)
+	return uc
+}
+
+// SetNillableCity sets the "city" field if the given value is not nil.
+func (uc *UserCreate) SetNillableCity(s *string) *UserCreate {
+	if s != nil {
+		uc.SetCity(*s)
+	}
+	return uc
+}
+
+// SetZipCode sets the "zip_code" field.
+func (uc *UserCreate) SetZipCode(s string) *UserCreate {
+	uc.mutation.SetZipCode(s)
+	return uc
+}
+
+// SetNillableZipCode sets the "zip_code" field if the given value is not nil.
+func (uc *UserCreate) SetNillableZipCode(s *string) *UserCreate {
+	if s != nil {
+		uc.SetZipCode(*s)
+	}
+	return uc
+}
+
+// SetCountry sets the "country" field.
+func (uc *UserCreate) SetCountry(s string) *UserCreate {
+	uc.mutation.SetCountry(s)
+	return uc
+}
+
+// SetNillableCountry sets the "country" field if the given value is not nil.
+func (uc *UserCreate) SetNillableCountry(s *string) *UserCreate {
+	if s != nil {
+		uc.SetCountry(*s)
+	}
+	return uc
+}
+
+// SetState sets the "state" field.
+func (uc *UserCreate) SetState(s string) *UserCreate {
+	uc.mutation.SetState(s)
+	return uc
+}
+
+// SetNillableState sets the "state" field if the given value is not nil.
+func (uc *UserCreate) SetNillableState(s *string) *UserCreate {
+	if s != nil {
+		uc.SetState(*s)
+	}
+	return uc
+}
+
+// SetEmail sets the "email" field.
+func (uc *UserCreate) SetEmail(s string) *UserCreate {
+	uc.mutation.SetEmail(s)
+	return uc
+}
+
+// SetPasswordHash sets the "password_hash" field.
+func (uc *UserCreate) SetPasswordHash(s string) *UserCreate {
+	uc.mutation.SetPasswordHash(s)
+	return uc
+}
+
+// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
+func (uc *UserCreate) SetNillablePasswordHash(s *string) *UserCreate {
+	if s != nil {
+		uc.SetPasswordHash(*s)
+	}
+	return uc
+}
+
+// SetOauthID sets the "oauth_id" field.
+func (uc *UserCreate) SetOauthID(s string) *UserCreate {
+	uc.mutation.SetOauthID(s)
+	return uc
+}
+
+// SetNillableOauthID sets the "oauth_id" field if the given value is not nil.
+func (uc *UserCreate) SetNillableOauthID(s *string) *UserCreate {
+	if s != nil {
+		uc.SetOauthID(*s)
+	}
+	return uc
+}
+
+// SetProvider sets the "provider" field.
+func (uc *UserCreate) SetProvider(u user.Provider) *UserCreate {
+	uc.mutation.SetProvider(u)
+	return uc
+}
+
+// SetNillableProvider sets the "provider" field if the given value is not nil.
+func (uc *UserCreate) SetNillableProvider(u *user.Provider) *UserCreate {
+	if u != nil {
+		uc.SetProvider(*u)
+	}
+	return uc
+}
+
+// SetFirstName sets the "first_name" field.
+func (uc *UserCreate) SetFirstName(s string) *UserCreate {
+	uc.mutation.SetFirstName(s)
+	return uc
+}
+
+// SetNillableFirstName sets the "first_name" field if the given value is not nil.
+func (uc *UserCreate) SetNillableFirstName(s *string) *UserCreate {
+	if s != nil {
+		uc.SetFirstName(*s)
+	}
+	return uc
+}
+
+// SetLastName sets the "last_name" field.
+func (uc *UserCreate) SetLastName(s string) *UserCreate {
+	uc.mutation.SetLastName(s)
+	return uc
+}
+
+// SetNillableLastName sets the "last_name" field if the given value is not nil.
+func (uc *UserCreate) SetNillableLastName(s *string) *UserCreate {
+	if s != nil {
+		uc.SetLastName(*s)
+	}
+	return uc
+}
+
+// SetPhoneNumber sets the "phone_number" field.
+func (uc *UserCreate) SetPhoneNumber(s string) *UserCreate {
+	uc.mutation.SetPhoneNumber(s)
+	return uc
+}
+
+// SetNillablePhoneNumber sets the "phone_number" field if the given value is not nil.
+func (uc *UserCreate) SetNillablePhoneNumber(s *string) *UserCreate {
+	if s != nil {
+		uc.SetPhoneNumber(*s)
+	}
+	return uc
+}
+
+// SetRole sets the "role" field.
+func (uc *UserCreate) SetRole(u user.Role) *UserCreate {
+	uc.mutation.SetRole(u)
+	return uc
+}
+
+// SetNillableRole sets the "role" field if the given value is not nil.
+func (uc *UserCreate) SetNillableRole(u *user.Role) *UserCreate {
+	if u != nil {
+		uc.SetRole(*u)
+	}
+	return uc
+}
+
+// SetIsEmailVerified sets the "is_email_verified" field.
+func (uc *UserCreate) SetIsEmailVerified(b bool) *UserCreate {
+	uc.mutation.SetIsEmailVerified(b)
+	return uc
+}
+
+// SetNillableIsEmailVerified sets the "is_email_verified" field if the given value is not nil.
+func (uc *UserCreate) SetNillableIsEmailVerified(b *bool) *UserCreate {
+	if b != nil {
+		uc.SetIsEmailVerified(*b)
+	}
+	return uc
+}
+
+// SetMarketingOptIn sets the "marketing_opt_in" field.
+func (uc *UserCreate) SetMarketingOptIn(b bool) *UserCreate {
+	uc.mutation.SetMarketingOptIn(b)
+	return uc
+}
+
+// SetNillableMarketingOptIn sets the "marketing_opt_in" field if the given value is not nil.
+func (uc *UserCreate) SetNillableMarketingOptIn(b *bool) *UserCreate {
+	if b != nil {
+		uc.SetMarketingOptIn(*b)
+	}
+	return uc
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (uc *UserCreate) SetTermsAcceptedAt(t time.Time) *UserCreate {
+	uc.mutation.SetTermsAcceptedAt(t)
+	return uc
+}
+
+// SetNillableTermsAcceptedAt sets the "terms_accepted_at" field if the given value is not nil.
+func (uc *UserCreate) SetNillableTermsAcceptedAt(t *time.Time) *UserCreate {
+	if t != nil {
+		uc.SetTermsAcceptedAt(*t)
+	}
+	return uc
+}
+
+// SetLastLoginAt sets the "last_login_at" field.
+func (uc *UserCreate) SetLastLoginAt(t time.Time) *UserCreate {
+	uc.mutation.SetLastLoginAt(t)
+	return uc
+}
+
+// SetNillableLastLoginAt sets the "last_login_at" field if the given value is not nil.
+func (uc *UserCreate) SetNillableLastLoginAt(t *time.Time) *UserCreate {
+	if t != nil {
+		uc.SetLastLoginAt(*t)
+	}
+	return uc
+}
+
 // SetID sets the "id" field.
 func (uc *UserCreate) SetID(i int64) *UserCreate {
 	uc.mutation.SetID(i)
 	return uc
+}
+
+// SetAddressID sets the "address" edge to the UserAddress entity by ID.
+func (uc *UserCreate) SetAddressID(id int) *UserCreate {
+	uc.mutation.SetAddressID(id)
+	return uc
+}
+
+// SetNillableAddressID sets the "address" edge to the UserAddress entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableAddressID(id *int) *UserCreate {
+	if id != nil {
+		uc = uc.SetAddressID(*id)
+	}
+	return uc
+}
+
+// SetAddress sets the "address" edge to the UserAddress entity.
+func (uc *UserCreate) SetAddress(u *UserAddress) *UserCreate {
+	return uc.SetAddressID(u.ID)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -129,15 +361,112 @@ func (uc *UserCreate) defaults() {
 		v := user.DefaultUpdatedAt()
 		uc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := uc.mutation.StreetName(); !ok {
+		v := user.DefaultStreetName
+		uc.mutation.SetStreetName(v)
+	}
+	if _, ok := uc.mutation.City(); !ok {
+		v := user.DefaultCity
+		uc.mutation.SetCity(v)
+	}
+	if _, ok := uc.mutation.ZipCode(); !ok {
+		v := user.DefaultZipCode
+		uc.mutation.SetZipCode(v)
+	}
+	if _, ok := uc.mutation.Country(); !ok {
+		v := user.DefaultCountry
+		uc.mutation.SetCountry(v)
+	}
+	if _, ok := uc.mutation.State(); !ok {
+		v := user.DefaultState
+		uc.mutation.SetState(v)
+	}
+	if _, ok := uc.mutation.Provider(); !ok {
+		v := user.DefaultProvider
+		uc.mutation.SetProvider(v)
+	}
+	if _, ok := uc.mutation.FirstName(); !ok {
+		v := user.DefaultFirstName
+		uc.mutation.SetFirstName(v)
+	}
+	if _, ok := uc.mutation.LastName(); !ok {
+		v := user.DefaultLastName
+		uc.mutation.SetLastName(v)
+	}
+	if _, ok := uc.mutation.Role(); !ok {
+		v := user.DefaultRole
+		uc.mutation.SetRole(v)
+	}
+	if _, ok := uc.mutation.IsEmailVerified(); !ok {
+		v := user.DefaultIsEmailVerified
+		uc.mutation.SetIsEmailVerified(v)
+	}
+	if _, ok := uc.mutation.MarketingOptIn(); !ok {
+		v := user.DefaultMarketingOptIn
+		uc.mutation.SetMarketingOptIn(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
 func (uc *UserCreate) check() error {
+	if _, ok := uc.mutation.CreatedAt(); !ok {
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "User.created_at"`)}
+	}
+	if _, ok := uc.mutation.UpdatedAt(); !ok {
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "User.updated_at"`)}
+	}
+	if _, ok := uc.mutation.StreetName(); !ok {
+		return &ValidationError{Name: "street_name", err: errors.New(`ent: missing required field "User.street_name"`)}
+	}
+	if v, ok := uc.mutation.StreetName(); ok {
+		if err := user.StreetNameValidator(v); err != nil {
+			return &ValidationError{Name: "street_name", err: fmt.Errorf(`ent: validator failed for field "User.street_name": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.City(); !ok {
+		return &ValidationError{Name: "city", err: errors.New(`ent: missing required field "User.city"`)}
+	}
+	if v, ok := uc.mutation.City(); ok {
+		if err := user.CityValidator(v); err != nil {
+			return &ValidationError{Name: "city", err: fmt.Errorf(`ent: validator failed for field "User.city": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.ZipCode(); !ok {
+		return &ValidationError{Name: "zip_code", err: errors.New(`ent: missing required field "User.zip_code"`)}
+	}
+	if v, ok := uc.mutation.ZipCode(); ok {
+		if err := user.ZipCodeValidator(v); err != nil {
+			return &ValidationError{Name: "zip_code", err: fmt.Errorf(`ent: validator failed for field "User.zip_code": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.Country(); !ok {
+		return &ValidationError{Name: "country", err: errors.New(`ent: missing required field "User.country"`)}
+	}
+	if v, ok := uc.mutation.Country(); ok {
+		if err := user.CountryValidator(v); err != nil {
+			return &ValidationError{Name: "country", err: fmt.Errorf(`ent: validator failed for field "User.country": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.State(); !ok {
+		return &ValidationError{Name: "state", err: errors.New(`ent: missing required field "User.state"`)}
+	}
+	if v, ok := uc.mutation.State(); ok {
+		if err := user.StateValidator(v); err != nil {
+			return &ValidationError{Name: "state", err: fmt.Errorf(`ent: validator failed for field "User.state": %w`, err)}
+		}
+	}
 	if _, ok := uc.mutation.Email(); !ok {
 		return &ValidationError{Name: "email", err: errors.New(`ent: missing required field "User.email"`)}
 	}
-	if _, ok := uc.mutation.PasswordHash(); !ok {
-		return &ValidationError{Name: "password_hash", err: errors.New(`ent: missing required field "User.password_hash"`)}
+	if v, ok := uc.mutation.Email(); ok {
+		if err := user.EmailValidator(v); err != nil {
+			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
+		}
+	}
+	if v, ok := uc.mutation.OauthID(); ok {
+		if err := user.OauthIDValidator(v); err != nil {
+			return &ValidationError{Name: "oauth_id", err: fmt.Errorf(`ent: validator failed for field "User.oauth_id": %w`, err)}
+		}
 	}
 	if _, ok := uc.mutation.Provider(); !ok {
 		return &ValidationError{Name: "provider", err: errors.New(`ent: missing required field "User.provider"`)}
@@ -147,11 +476,40 @@ func (uc *UserCreate) check() error {
 			return &ValidationError{Name: "provider", err: fmt.Errorf(`ent: validator failed for field "User.provider": %w`, err)}
 		}
 	}
-	if _, ok := uc.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "User.created_at"`)}
+	if _, ok := uc.mutation.FirstName(); !ok {
+		return &ValidationError{Name: "first_name", err: errors.New(`ent: missing required field "User.first_name"`)}
 	}
-	if _, ok := uc.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "User.updated_at"`)}
+	if v, ok := uc.mutation.FirstName(); ok {
+		if err := user.FirstNameValidator(v); err != nil {
+			return &ValidationError{Name: "first_name", err: fmt.Errorf(`ent: validator failed for field "User.first_name": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.LastName(); !ok {
+		return &ValidationError{Name: "last_name", err: errors.New(`ent: missing required field "User.last_name"`)}
+	}
+	if v, ok := uc.mutation.LastName(); ok {
+		if err := user.LastNameValidator(v); err != nil {
+			return &ValidationError{Name: "last_name", err: fmt.Errorf(`ent: validator failed for field "User.last_name": %w`, err)}
+		}
+	}
+	if v, ok := uc.mutation.PhoneNumber(); ok {
+		if err := user.PhoneNumberValidator(v); err != nil {
+			return &ValidationError{Name: "phone_number", err: fmt.Errorf(`ent: validator failed for field "User.phone_number": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.Role(); !ok {
+		return &ValidationError{Name: "role", err: errors.New(`ent: missing required field "User.role"`)}
+	}
+	if v, ok := uc.mutation.Role(); ok {
+		if err := user.RoleValidator(v); err != nil {
+			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "User.role": %w`, err)}
+		}
+	}
+	if _, ok := uc.mutation.IsEmailVerified(); !ok {
+		return &ValidationError{Name: "is_email_verified", err: errors.New(`ent: missing required field "User.is_email_verified"`)}
+	}
+	if _, ok := uc.mutation.MarketingOptIn(); !ok {
+		return &ValidationError{Name: "marketing_opt_in", err: errors.New(`ent: missing required field "User.marketing_opt_in"`)}
 	}
 	return nil
 }
@@ -185,6 +543,38 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = id
 	}
+	if value, ok := uc.mutation.CreatedAt(); ok {
+		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
+		_node.CreatedAt = value
+	}
+	if value, ok := uc.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
+	}
+	if value, ok := uc.mutation.DeletedAt(); ok {
+		_spec.SetField(user.FieldDeletedAt, field.TypeTime, value)
+		_node.DeletedAt = &value
+	}
+	if value, ok := uc.mutation.StreetName(); ok {
+		_spec.SetField(user.FieldStreetName, field.TypeString, value)
+		_node.StreetName = value
+	}
+	if value, ok := uc.mutation.City(); ok {
+		_spec.SetField(user.FieldCity, field.TypeString, value)
+		_node.City = value
+	}
+	if value, ok := uc.mutation.ZipCode(); ok {
+		_spec.SetField(user.FieldZipCode, field.TypeString, value)
+		_node.ZipCode = value
+	}
+	if value, ok := uc.mutation.Country(); ok {
+		_spec.SetField(user.FieldCountry, field.TypeString, value)
+		_node.Country = value
+	}
+	if value, ok := uc.mutation.State(); ok {
+		_spec.SetField(user.FieldState, field.TypeString, value)
+		_node.State = value
+	}
 	if value, ok := uc.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 		_node.Email = value
@@ -201,13 +591,54 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldProvider, field.TypeEnum, value)
 		_node.Provider = value
 	}
-	if value, ok := uc.mutation.CreatedAt(); ok {
-		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
-		_node.CreatedAt = value
+	if value, ok := uc.mutation.FirstName(); ok {
+		_spec.SetField(user.FieldFirstName, field.TypeString, value)
+		_node.FirstName = value
 	}
-	if value, ok := uc.mutation.UpdatedAt(); ok {
-		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
-		_node.UpdatedAt = value
+	if value, ok := uc.mutation.LastName(); ok {
+		_spec.SetField(user.FieldLastName, field.TypeString, value)
+		_node.LastName = value
+	}
+	if value, ok := uc.mutation.PhoneNumber(); ok {
+		_spec.SetField(user.FieldPhoneNumber, field.TypeString, value)
+		_node.PhoneNumber = value
+	}
+	if value, ok := uc.mutation.Role(); ok {
+		_spec.SetField(user.FieldRole, field.TypeEnum, value)
+		_node.Role = value
+	}
+	if value, ok := uc.mutation.IsEmailVerified(); ok {
+		_spec.SetField(user.FieldIsEmailVerified, field.TypeBool, value)
+		_node.IsEmailVerified = value
+	}
+	if value, ok := uc.mutation.MarketingOptIn(); ok {
+		_spec.SetField(user.FieldMarketingOptIn, field.TypeBool, value)
+		_node.MarketingOptIn = value
+	}
+	if value, ok := uc.mutation.TermsAcceptedAt(); ok {
+		_spec.SetField(user.FieldTermsAcceptedAt, field.TypeTime, value)
+		_node.TermsAcceptedAt = &value
+	}
+	if value, ok := uc.mutation.LastLoginAt(); ok {
+		_spec.SetField(user.FieldLastLoginAt, field.TypeTime, value)
+		_node.LastLoginAt = &value
+	}
+	if nodes := uc.mutation.AddressIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.AddressTable,
+			Columns: []string{user.AddressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useraddress.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_address = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

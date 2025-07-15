@@ -11,6 +11,8 @@ DB_USER="appuser"
 DEV_DB_NAME="authservicelocal"
 PROD_DB_NAME="authserviceprod"
 REDIS_PASSWORD=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 64)
+
 
 # Port Configuration
 MYSQL_DEV_HOST_PORT=3388
@@ -88,6 +90,7 @@ REDIS_DEV_HOST_PORT=$REDIS_DEV_HOST_PORT
 APP_DEV_HOST_PORT=$APP_DEV_HOST_PORT
 PORT=$APP_DEV_HOST_PORT
 APP_ENV=development
+JWT_SECRET=$JWT_SECRET
 EOF
 
 
@@ -133,15 +136,23 @@ services:
 
   redis:
     image: redis/redis-stack:7.2.0-v17
-    command: redis-server --requirepass $REDIS_PASSWORD
+    command: ['/redis-entrypoint.sh']
     container_name: redis
     environment:
       - REDIS_ARGS=--save 1200 32
       - REDIS_PASSWORD=$REDIS_PASSWORD
     volumes:
+      - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          'CMD',
+          'redis-cli',
+          '-a',
+          $REDIS_PASSWORD,
+          'ping',
+        ]
       interval: 5s
       timeout: 5s
       retries: 5

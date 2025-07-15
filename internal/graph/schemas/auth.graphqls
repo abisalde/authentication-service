@@ -1,16 +1,18 @@
 input RegisterInput {
-	email: String!
-	password: String!
+	email: String! @constraint(format: "email", maxLength: 60)
+	password: String! @constraint(format: "password", minLength: 8, maxLength: 50)
 }
 
 input LoginInput {
-	email: String!
-	password: String!
+	email: String! @constraint(format: "email", maxLength: 60)
+	password: String! @constraint(format: "password", minLength: 8, maxLength: 50)
 }
 
-type AuthPayload {
+type LoginResponse {
 	token: String!
-	user: User!
+	userId: ID!
+	email: String!
+	refreshToken: String
 }
 
 enum AuthProvider {
@@ -19,10 +21,91 @@ enum AuthProvider {
 	FACEBOOK
 }
 
+input AccountVerification {
+	code: String! @constraint(minLength: 4, maxLength: 4)
+	email: String! @constraint(format: "email", maxLength: 60)
+}
+
+input ResendVerificationCode {
+	email: String! @constraint(format: "email", maxLength: 60)
+}
+
+type PublicUser {
+	id: ID!
+	email: String!
+	name: String
+}
+
+"""
+Registration & OAUTH
+"""
+type RegisterResponse {
+	user: PublicUser!
+	message: String!
+	oauthId: ID
+}
+
+"""
+Login & OAUTH
+"""
+enum OAuthProvider {
+	GOOGLE
+	FACEBOOK
+}
+
+input OAuthLoginInput {
+	code: String!
+	provider: OAuthProvider!
+	redirectUri: String
+}
+
+input ChangePasswordInput {
+	oldPassword: String!
+		@constraint(format: "password", minLength: 8, maxLength: 50)
+	newPassword: String!
+		@constraint(format: "password", minLength: 8, maxLength: 50)
+	confirmNewPassword: String!
+		@constraint(format: "password", minLength: 8, maxLength: 50)
+}
+
+enum RateLimitMethods {
+	LOGIN
+	REGISTER
+	UPDATE_PROFILE
+	CHANGE_PASSWORD
+	VERIFY_ACCOUNT
+	RESEND_VERIFICATION_CODE
+}
+
 extend type Mutation {
-	register(input: RegisterInput!): AuthPayload!
-	login(input: LoginInput!): AuthPayload!
-	googleLogin(code: String!): AuthPayload!
-	facebookLogin(code: String!): AuthPayload!
-	logout: Boolean!
+	"Register a user"
+	register(input: RegisterInput!): RegisterResponse!
+		@rateLimit(operation: "LOGIN", limit: 8, duration: 3600)
+
+	"Login with Email & Password"
+	login(input: LoginInput!): LoginResponse!
+		@rateLimit(operation: "REGISTER", limit: 5, duration: 3600)
+
+	"OauthLogin Facebook, Google"
+	oauthLogin(input: OAuthLoginInput!): LoginResponse!
+
+	logout: Boolean! @auth(requires: USER)
+
+	"Update a user's Profile"
+	updateProfile(input: UpdateProfileInput!): User!
+		@auth(requires: USER)
+		@rateLimit(operation: "UPDATE_PROFILE", limit: 3, duration: 3600)
+
+	"Change a User's Password"
+	changePassword(input: ChangePasswordInput): Boolean!
+		@auth(requires: USER)
+		@rateLimit(operation: "CHANGE_PASSWORD", limit: 4, duration: 3600)
+
+	"Verify User Account"
+	verifyAccount(input: AccountVerification!): Boolean!
+		@rateLimit(operation: "VERIFY_ACCOUNT", limit: 4, duration: 3600)
+
+	"Request a New Verification Code"
+	resendVerificationCode(input: ResendVerificationCode!): Boolean!
+		@rateLimit(operation: "RESEND_VERIFICATION_CODE", limit: 5, duration: 3600)
 }

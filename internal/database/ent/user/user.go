@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -14,6 +15,22 @@ const (
 	Label = "user"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCreatedAt holds the string denoting the created_at field in the database.
+	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updated_at"
+	// FieldDeletedAt holds the string denoting the deleted_at field in the database.
+	FieldDeletedAt = "deleted_at"
+	// FieldStreetName holds the string denoting the street_name field in the database.
+	FieldStreetName = "street_name"
+	// FieldCity holds the string denoting the city field in the database.
+	FieldCity = "city"
+	// FieldZipCode holds the string denoting the zip_code field in the database.
+	FieldZipCode = "zip_code"
+	// FieldCountry holds the string denoting the country field in the database.
+	FieldCountry = "country"
+	// FieldState holds the string denoting the state field in the database.
+	FieldState = "state"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
 	// FieldPasswordHash holds the string denoting the password_hash field in the database.
@@ -22,29 +39,75 @@ const (
 	FieldOauthID = "oauth_id"
 	// FieldProvider holds the string denoting the provider field in the database.
 	FieldProvider = "provider"
-	// FieldCreatedAt holds the string denoting the created_at field in the database.
-	FieldCreatedAt = "created_at"
-	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
-	FieldUpdatedAt = "updated_at"
+	// FieldFirstName holds the string denoting the first_name field in the database.
+	FieldFirstName = "first_name"
+	// FieldLastName holds the string denoting the last_name field in the database.
+	FieldLastName = "last_name"
+	// FieldPhoneNumber holds the string denoting the phone_number field in the database.
+	FieldPhoneNumber = "phone_number"
+	// FieldRole holds the string denoting the role field in the database.
+	FieldRole = "role"
+	// FieldIsEmailVerified holds the string denoting the is_email_verified field in the database.
+	FieldIsEmailVerified = "is_email_verified"
+	// FieldMarketingOptIn holds the string denoting the marketing_opt_in field in the database.
+	FieldMarketingOptIn = "marketing_opt_in"
+	// FieldTermsAcceptedAt holds the string denoting the terms_accepted_at field in the database.
+	FieldTermsAcceptedAt = "terms_accepted_at"
+	// FieldLastLoginAt holds the string denoting the last_login_at field in the database.
+	FieldLastLoginAt = "last_login_at"
+	// EdgeAddress holds the string denoting the address edge name in mutations.
+	EdgeAddress = "address"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// AddressTable is the table that holds the address relation/edge.
+	AddressTable = "users"
+	// AddressInverseTable is the table name for the UserAddress entity.
+	// It exists in this package in order to avoid circular dependency with the "useraddress" package.
+	AddressInverseTable = "user_addresses"
+	// AddressColumn is the table column denoting the address relation/edge.
+	AddressColumn = "user_address"
 )
 
 // Columns holds all SQL columns for user fields.
 var Columns = []string{
 	FieldID,
+	FieldCreatedAt,
+	FieldUpdatedAt,
+	FieldDeletedAt,
+	FieldStreetName,
+	FieldCity,
+	FieldZipCode,
+	FieldCountry,
+	FieldState,
 	FieldEmail,
 	FieldPasswordHash,
 	FieldOauthID,
 	FieldProvider,
-	FieldCreatedAt,
-	FieldUpdatedAt,
+	FieldFirstName,
+	FieldLastName,
+	FieldPhoneNumber,
+	FieldRole,
+	FieldIsEmailVerified,
+	FieldMarketingOptIn,
+	FieldTermsAcceptedAt,
+	FieldLastLoginAt,
+}
+
+// ForeignKeys holds the SQL foreign-keys that are owned by the "users"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"user_address",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -58,16 +121,57 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultStreetName holds the default value on creation for the "street_name" field.
+	DefaultStreetName string
+	// StreetNameValidator is a validator for the "street_name" field. It is called by the builders before save.
+	StreetNameValidator func(string) error
+	// DefaultCity holds the default value on creation for the "city" field.
+	DefaultCity string
+	// CityValidator is a validator for the "city" field. It is called by the builders before save.
+	CityValidator func(string) error
+	// DefaultZipCode holds the default value on creation for the "zip_code" field.
+	DefaultZipCode string
+	// ZipCodeValidator is a validator for the "zip_code" field. It is called by the builders before save.
+	ZipCodeValidator func(string) error
+	// DefaultCountry holds the default value on creation for the "country" field.
+	DefaultCountry string
+	// CountryValidator is a validator for the "country" field. It is called by the builders before save.
+	CountryValidator func(string) error
+	// DefaultState holds the default value on creation for the "state" field.
+	DefaultState string
+	// StateValidator is a validator for the "state" field. It is called by the builders before save.
+	StateValidator func(string) error
+	// EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	EmailValidator func(string) error
+	// OauthIDValidator is a validator for the "oauth_id" field. It is called by the builders before save.
+	OauthIDValidator func(string) error
+	// DefaultFirstName holds the default value on creation for the "first_name" field.
+	DefaultFirstName string
+	// FirstNameValidator is a validator for the "first_name" field. It is called by the builders before save.
+	FirstNameValidator func(string) error
+	// DefaultLastName holds the default value on creation for the "last_name" field.
+	DefaultLastName string
+	// LastNameValidator is a validator for the "last_name" field. It is called by the builders before save.
+	LastNameValidator func(string) error
+	// PhoneNumberValidator is a validator for the "phone_number" field. It is called by the builders before save.
+	PhoneNumberValidator func(string) error
+	// DefaultIsEmailVerified holds the default value on creation for the "is_email_verified" field.
+	DefaultIsEmailVerified bool
+	// DefaultMarketingOptIn holds the default value on creation for the "marketing_opt_in" field.
+	DefaultMarketingOptIn bool
 )
 
 // Provider defines the type for the "provider" enum field.
 type Provider string
 
+// ProviderEMAIL is the default value of the Provider enum.
+const DefaultProvider = ProviderEMAIL
+
 // Provider values.
 const (
-	ProviderGoogle   Provider = "google"
-	ProviderFacebook Provider = "facebook"
-	ProviderEmail    Provider = "email"
+	ProviderGOOGLE   Provider = "GOOGLE"
+	ProviderFACEBOOK Provider = "FACEBOOK"
+	ProviderEMAIL    Provider = "EMAIL"
 )
 
 func (pr Provider) String() string {
@@ -77,10 +181,36 @@ func (pr Provider) String() string {
 // ProviderValidator is a validator for the "provider" field enum values. It is called by the builders before save.
 func ProviderValidator(pr Provider) error {
 	switch pr {
-	case ProviderGoogle, ProviderFacebook, ProviderEmail:
+	case ProviderGOOGLE, ProviderFACEBOOK, ProviderEMAIL:
 		return nil
 	default:
 		return fmt.Errorf("user: invalid enum value for provider field: %q", pr)
+	}
+}
+
+// Role defines the type for the "role" enum field.
+type Role string
+
+// RoleUSER is the default value of the Role enum.
+const DefaultRole = RoleUSER
+
+// Role values.
+const (
+	RoleADMIN Role = "ADMIN"
+	RoleUSER  Role = "USER"
+)
+
+func (r Role) String() string {
+	return string(r)
+}
+
+// RoleValidator is a validator for the "role" field enum values. It is called by the builders before save.
+func RoleValidator(r Role) error {
+	switch r {
+	case RoleADMIN, RoleUSER:
+		return nil
+	default:
+		return fmt.Errorf("user: invalid enum value for role field: %q", r)
 	}
 }
 
@@ -90,6 +220,46 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByCreatedAt orders the results by the created_at field.
+func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByUpdatedAt orders the results by the updated_at field.
+func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByDeletedAt orders the results by the deleted_at field.
+func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
+}
+
+// ByStreetName orders the results by the street_name field.
+func ByStreetName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStreetName, opts...).ToFunc()
+}
+
+// ByCity orders the results by the city field.
+func ByCity(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCity, opts...).ToFunc()
+}
+
+// ByZipCode orders the results by the zip_code field.
+func ByZipCode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldZipCode, opts...).ToFunc()
+}
+
+// ByCountry orders the results by the country field.
+func ByCountry(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCountry, opts...).ToFunc()
+}
+
+// ByState orders the results by the state field.
+func ByState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldState, opts...).ToFunc()
 }
 
 // ByEmail orders the results by the email field.
@@ -112,12 +282,56 @@ func ByProvider(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProvider, opts...).ToFunc()
 }
 
-// ByCreatedAt orders the results by the created_at field.
-func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+// ByFirstName orders the results by the first_name field.
+func ByFirstName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFirstName, opts...).ToFunc()
 }
 
-// ByUpdatedAt orders the results by the updated_at field.
-func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+// ByLastName orders the results by the last_name field.
+func ByLastName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastName, opts...).ToFunc()
+}
+
+// ByPhoneNumber orders the results by the phone_number field.
+func ByPhoneNumber(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPhoneNumber, opts...).ToFunc()
+}
+
+// ByRole orders the results by the role field.
+func ByRole(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRole, opts...).ToFunc()
+}
+
+// ByIsEmailVerified orders the results by the is_email_verified field.
+func ByIsEmailVerified(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsEmailVerified, opts...).ToFunc()
+}
+
+// ByMarketingOptIn orders the results by the marketing_opt_in field.
+func ByMarketingOptIn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMarketingOptIn, opts...).ToFunc()
+}
+
+// ByTermsAcceptedAt orders the results by the terms_accepted_at field.
+func ByTermsAcceptedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTermsAcceptedAt, opts...).ToFunc()
+}
+
+// ByLastLoginAt orders the results by the last_login_at field.
+func ByLastLoginAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastLoginAt, opts...).ToFunc()
+}
+
+// ByAddressField orders the results by address field.
+func ByAddressField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAddressStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newAddressStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AddressInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, AddressTable, AddressColumn),
+	)
 }

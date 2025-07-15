@@ -1,0 +1,48 @@
+directive @goModel(
+	model: String
+	models: [String!]
+	forceGenerate: Boolean
+) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
+directive @goField(
+	forceResolver: Boolean
+	name: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+directive @goTag(
+	key: String!
+	value: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+"Input validation constraints"
+directive @constraint(
+	"String format validation (email, url, password, etc.)"
+	format: String
+	"Minimum length for strings/lists"
+	minLength: Int
+	"Maximum length for strings/lists"
+	maxLength: Int
+	"Regex pattern to match"
+	pattern: String
+	"Minimum numeric value"
+	min: Float
+	"Maximum numeric value"
+	max: Float
+) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION | FIELD_DEFINITION
+
+"Rate limiting for operations"
+directive @rateLimit(
+	"Operation Method"
+	operation: RateLimitMethods!
+	"Maximum number of allowed requests"
+	limit: Int!
+	"Time window in seconds"
+	duration: Int!
+) on FIELD_DEFINITION
+
+"Authentication directive"
+directive @auth(
+	"Required user role"
+	requires: UserRole = USER
+) on FIELD_DEFINITION | OBJECT | FIELD
+
+directive @default(value: String!) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION

@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +25,20 @@ type Config struct {
 	Redis struct {
 		Addr     string `yaml:"redis_addr"`
 		Password string `yaml:"redis_password"`
+		DB       int    `yaml:"redis_db"`
 	} `yaml:"redis"`
+
+	Mail struct {
+		SMTPHost     string
+		SMTPPort     string
+		SMTPUsername string
+		SMTPPassword string
+		SenderEmail  string
+	}
+
+	Env struct {
+		CurrentEnv string
+	}
 }
 
 func Load(env string) (*Config, error) {
@@ -44,14 +56,21 @@ func Load(env string) (*Config, error) {
 	}
 	defer file.Close()
 
-	log.Printf("Loading config from: %s", configPath)
-
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, err
 	}
 
-	cfg.DB.Password = getPassword(env)
+	cfg.DB.Password = getDBPassword(env)
+	cfg.Redis.Password = getRedisPassword()
+	cfg.Redis.DB = 0
+
+	cfg.Mail.SMTPHost = os.Getenv("SMTP_HOST")
+	cfg.Mail.SMTPPort = os.Getenv("SMTP_PORT")
+	cfg.Mail.SMTPUsername = os.Getenv("SMTP_USERNAME")
+	cfg.Mail.SMTPPassword = os.Getenv("SMTP_PASSWORD")
+	cfg.Mail.SenderEmail = os.Getenv("SENDER_EMAIL")
+	cfg.Env.CurrentEnv = os.Getenv("APP_ENV")
 
 	expandConfig(&cfg, env)
 
@@ -59,15 +78,15 @@ func Load(env string) (*Config, error) {
 }
 
 func (c *Config) SQL_DSB() string {
-	log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
+	// log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+	// 	c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		c.DB.User, c.DB.Password, c.DB.Host, 3306, c.DB.Name,
 	) // We change the PORT to 3306 when connecting via Docker instead of c.DB.Port
 }
 
-func getPassword(env string) string {
+func getDBPassword(env string) string {
 	var (
 		envVarName string
 		secretFile string
@@ -81,6 +100,34 @@ func getPassword(env string) string {
 		envVarName = "DEV_DB_PASSWORD"
 		secretFile = ".dev_db_password"
 	}
+
+	password := ""
+
+	if pass := os.Getenv(envVarName); pass != "" {
+		password = pass
+	}
+
+	if password == "" {
+		if err := godotenv.Load(); err == nil {
+			if pass := os.Getenv(envVarName); pass != "" {
+				password = pass
+			}
+		}
+	}
+
+	if password == "" {
+		secretPath := filepath.Join("..", "secrets", secretFile)
+		if data, err := os.ReadFile(secretPath); err == nil {
+			password = strings.TrimSpace(string(data))
+		}
+	}
+
+	return password
+}
+
+func getRedisPassword() string {
+	envVarName := "REDIS_PASSWORD"
+	secretFile := ".redis_password"
 
 	password := ""
 
