@@ -177,18 +177,12 @@ func (s *AuthService) PublishLoginEvent(ctx context.Context, userID int64) error
 		return fmt.Errorf("failed to marshal login event: %w", err)
 	}
 
-	// XADD command: Add message to stream, '*' generates a unique ID
 	_, err = s.cache.RawClient().XAdd(ctx, &redis.XAddArgs{
 		Stream: LoginStreamKey,
 		MaxLen: 100000,
 		Values: map[string]interface{}{"event": eventData},
 	}).Result()
 
-	// if cmd.Err() != nil {
-	// 	return fmt.Errorf("failed to publish login event to Redis Stream: %w", cmd.Err())
-	// }
-
-	// log.Printf("Published login event for UserID: %d to stream %s with ID %s\n", userID, LoginStreamKey, cmd.Val())
 	return err
 }
 
