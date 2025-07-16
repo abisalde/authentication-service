@@ -28,16 +28,18 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 1.24
+
+      - name: Clean up Go cache
+        run: go clean
+
+      - name: Install Go dependencies
+        run: go mod download
       
       - name: Generate Ent commit-date
-        run: |
-          go install github.com/ent/ent/cmd/ent@latest
-          go generate ./internal/database/ent 
+        run: go generate ./internal/database/ent 
     
       - name: Initialize GraphQL schema
-        run: |
-          go install github.com/99designs/gqlgen@latest
-          go run github.com/99designs/gqlgen generate --verbose
+        run: go run github.com/99designs/gqlgen generate --verbose
       
       - name: Tidy dependencies
         run: go mod tidy
