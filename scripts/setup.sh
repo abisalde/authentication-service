@@ -12,6 +12,7 @@ DEV_DB_NAME="authservicelocal"
 PROD_DB_NAME="authserviceprod"
 REDIS_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 64)
+API_URL="api.abisalde.dev"
 
 
 # Port Configuration
@@ -125,7 +126,7 @@ services:
       - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
       - mysql_data:/var/lib/mysql
-      - $SECRETS_DIR/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "$PROD_DB_NAME"]
       interval: 5s
@@ -136,13 +137,11 @@ services:
 
   redis:
     image: redis/redis-stack:7.2.0-v17
-    command: ['/redis-entrypoint.sh']
-    container_name: redis
+    container_name: redis-prod
     environment:
       - REDIS_ARGS=--save 1200 32
       - REDIS_PASSWORD=$REDIS_PASSWORD
     volumes:
-      - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
     healthcheck:
       test:
@@ -201,10 +200,12 @@ services:
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.auth-service.rule=Host(`api.abisalde.dev`)
+      - traefik.http.routers.auth-service.rule=Host($API_URL)
       - traefik.http.routers.auth-service.entrypoints=websecure
       - traefik.http.routers.auth-service.tls.certresolver=letsencrypt
       - traefik.http.services.auth-service.loadbalancer.server.port=8080
+    networks:
+      - auth-prod-net
 
 volumes:
   mysql_data:
