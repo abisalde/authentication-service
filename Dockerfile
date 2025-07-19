@@ -13,17 +13,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 
-# Copy only what's needed for code generation
-COPY internal/database/ent/ ./internal/database/ent/
-COPY internal/graph/ ./internal/graph/
-COPY gqlgen.yml ./
-
 # Generate Ent code
 RUN go generate ./internal/database/ent
-
-# Workaround for local package resolution
-RUN go mod edit -replace github.com/abisalde/authentication-service=. && \
-    go mod tidy
 
 # Generate GraphQL code
 RUN go run github.com/99designs/gqlgen generate --verbose
