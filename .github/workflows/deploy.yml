@@ -40,6 +40,15 @@ jobs:
           username: ${{ github.actor }}
           token: ${{ secrets.GITHUB_TOKEN }}
           password: ${{ secrets.GHCR_PAT }}
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
 
       - name: Generate Docker Compose for Production
         run: |
@@ -57,6 +66,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          builder: ${{ steps.buildx.outputs.name }}
 
 
   deploy:
@@ -113,7 +123,7 @@ jobs:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           COMPOSE_DIR: ${{ env.COMPOSE_DIR }}
-          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_DEFAULT_PLATFORM: linux/amd64   
