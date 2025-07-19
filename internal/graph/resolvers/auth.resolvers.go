@@ -39,7 +39,7 @@ func (r *mutationResolver) UpdateProfile(ctx context.Context, input model.Update
 
 // ChangePassword is the resolver for the changePassword field.
 func (r *mutationResolver) ChangePassword(ctx context.Context, input *model.ChangePasswordInput) (bool, error) {
-	panic(fmt.Errorf("not implemented: ChangePassword - changePassword"))
+	return r.profileHandler.HandlePasswordChange(ctx, *input)
 }
 
 // VerifyAccount is the resolver for the verifyAccount field.

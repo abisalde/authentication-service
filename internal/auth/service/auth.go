@@ -196,3 +196,7 @@ func (s *AuthService) IsTokenBlacklisted(ctx context.Context, token string) bool
 	err := s.cache.Get(ctx, fmt.Sprintf("blacklist:%s", token), &val)
 	return err == nil && val == "blacklisted"
 }
+
+func (s *AuthService) UpdateUserPassword(ctx context.Context, userID int64, passwordHash string) error {
+	return s.userRepo.UpdateNewPassword(ctx, userID, passwordHash)
+}
