@@ -126,7 +126,7 @@ services:
       - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - authentication-service/secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "$PROD_DB_NAME"]
       interval: 5s
