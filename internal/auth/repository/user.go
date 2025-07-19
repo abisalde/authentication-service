@@ -15,6 +15,7 @@ type UserRepository interface {
 	CreateNewUser(ctx context.Context, input *model.RegisterVerifiedUser) (*ent.User, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	UpdateLoginTime(ctx context.Context, userID int64) error
+	UpdateNewPassword(ctx context.Context, userID int64, passwordHash string) error
 }
 
 type userRepository struct {
@@ -65,5 +66,13 @@ func (r *userRepository) UpdateLoginTime(ctx context.Context, userID int64) erro
 	err := r.client.User.UpdateOneID(userID).
 		SetLastLoginAt(time.Now()).
 		SetUpdatedAt(time.Now()).Exec(ctx)
+	return err
+}
+
+func (r *userRepository) UpdateNewPassword(ctx context.Context, userID int64, passwordHash string) error {
+	err := r.client.User.UpdateOneID(userID).
+		SetPasswordHash(passwordHash).
+		SetUpdatedAt(time.Now()).Exec(ctx)
+
 	return err
 }

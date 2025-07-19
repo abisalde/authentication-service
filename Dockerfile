@@ -16,7 +16,7 @@ RUN go mod download
 # Copy the entire project
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o authentication-service ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /authentication-service ./cmd/server
 
 # Final stage
 FROM alpine:latest

@@ -8,6 +8,7 @@ import (
 	"github.com/abisalde/authentication-service/internal/graph/converters"
 	"github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/internal/graph/model"
+	"github.com/abisalde/authentication-service/pkg/password"
 )
 
 type ProfileHandler struct {
@@ -25,11 +26,34 @@ func (h *ProfileHandler) GetUserProfile(ctx context.Context) (*model.User, error
 		return nil, errors.AuthenticationRequired
 	}
 
-	user, err := h.authService.FindUserProfileById(ctx, currentUser.ID)
+	return converters.UserToGraph(currentUser), nil
+}
 
+func (h *ProfileHandler) HandlePasswordChange(ctx context.Context, input model.ChangePasswordInput) (bool, error) {
+	_, err := password.VerifyPasswords(&input)
 	if err != nil {
-		return nil, errors.ErrSomethingWentWrong
+		return false, err
 	}
 
-	return converters.UserToGraph(user), nil
+	currentUser := auth.GetCurrentUser(ctx)
+
+	if currentUser == nil {
+		return false, errors.AuthenticationRequired
+	}
+
+	if err := password.CheckPasswordHash(input.OldPassword, currentUser.PasswordHash); err != nil {
+		return false, errors.InvalidCredentialsPassword
+	}
+
+	newPasswordHash, err := password.HashPassword(input.NewPassword)
+
+	if err != nil {
+		return false, errors.ErrSomethingWentWrong
+	}
+
+	if err := h.authService.UpdateUserPassword(ctx, currentUser.ID, newPasswordHash); err != nil {
+		return false, errors.ErrSomethingWentWrong
+	}
+
+	return true, nil
 }
