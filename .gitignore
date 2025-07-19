@@ -26,22 +26,6 @@ vendor/
 go.work
 go.work.sum
 
-# Ent generated files
-/internal/database/ent/ent.go
-/internal/database/ent/enttest/
-/internal/database/ent/migrate/
-/internal/database/ent/schema/*_gen.go
-/internal/database/ent/entc.go
-/internal/database/ent/generate.go
-/internal/database/ent/tmp/
-internal/database/ent/ent.go
-internal/database/ent/enttest/
-internal/database/ent/migrate/
-
-# gqlgen generated files
-/internal/graph/generated.go
-/internal/graph/models/models_gen.go
-/internal/graph/model/models_gen.go
 
 # gqlgen config output
 gqlgen.yml.lock
@@ -90,15 +74,6 @@ vendor/
 # Test output
 coverage.txt
 profile.out
-
-# Ent generated files
-internal/database/ent/generate.go
-internal/database/ent/generated/
-
-# gqlgen generated files
-/graph/generated/
-/graph/models_gen.go
-
 
 
 # Log files

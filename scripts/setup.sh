@@ -12,6 +12,7 @@ DEV_DB_NAME="authservicelocal"
 PROD_DB_NAME="authserviceprod"
 REDIS_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 64)
+API_URL="api.abisalde.dev"
 
 
 # Port Configuration
@@ -117,15 +118,15 @@ services:
     image: mysql:lts
     container_name: mysql-prod
     environment:
-      MYSQL_ROOT_PASSWORD: $PROD_DB_PASSWORD
-      MYSQL_USER: $DB_USER
-      MYSQL_PASSWORD: $PROD_DB_PASSWORD
-      MYSQL_DATABASE: $PROD_DB_NAME
+      MYSQL_ROOT_PASSWORD: '$PROD_DB_PASSWORD'
+      MYSQL_USER: '$DB_USER'
+      MYSQL_PASSWORD: '$PROD_DB_PASSWORD'
+      MYSQL_DATABASE: '$PROD_DB_NAME'
     ports:
-      - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
+      - '$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT'
     volumes:
       - mysql_data:/var/lib/mysql
-      - $SECRETS_DIR/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "$PROD_DB_NAME"]
       interval: 5s
@@ -136,13 +137,11 @@ services:
 
   redis:
     image: redis/redis-stack:7.2.0-v17
-    command: ['/redis-entrypoint.sh']
-    container_name: redis
+    container_name: redis-prod
     environment:
       - REDIS_ARGS=--save 1200 32
-      - REDIS_PASSWORD=$REDIS_PASSWORD
+      - REDIS_PASSWORD='$REDIS_PASSWORD'
     volumes:
-      - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
     healthcheck:
       test:
@@ -150,7 +149,7 @@ services:
           'CMD',
           'redis-cli',
           '-a',
-          $REDIS_PASSWORD,
+          "$REDIS_PASSWORD",
           'ping',
         ]
       interval: 5s
@@ -159,7 +158,7 @@ services:
     networks:
       - auth-prod-net
     ports:
-      - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
+      - '$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT'
     deploy:
       replicas: 1
       restart_policy:
@@ -193,18 +192,20 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: mysql
-      DB_PORT: $MYSQL_DEV_PROD_HOST_PORT
-      DB_USER: $DB_USER
-      DB_PASSWORD: $PROD_DB_PASSWORD
-      DB_NAME: $PROD_DB_NAME
+      DB_PORT: '$MYSQL_DEV_PROD_HOST_PORT'
+      DB_USER: '$DB_USER'
+      DB_PASSWORD: $PROD_DB_PASSWORD'
+      DB_NAME: '$PROD_DB_NAME'
       DB_SSL_MODE: require
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.auth-service.rule=Host(`api.abisalde.dev`)
+      - traefik.http.routers.auth-service.rule=Host($API_URL)
       - traefik.http.routers.auth-service.entrypoints=websecure
       - traefik.http.routers.auth-service.tls.certresolver=letsencrypt
       - traefik.http.services.auth-service.loadbalancer.server.port=8080
+    networks:
+      - auth-prod-net
 
 volumes:
   mysql_data:
