@@ -14,8 +14,8 @@ RUN go mod download
 
 
 # Copy only what's needed for code generation
-COPY internal/database/ent/schema/ ./internal/database/ent/schema/
-COPY internal/graph/schemas/ ./internal/graph/schemas/
+COPY internal/database/ent/ ./internal/database/ent/
+COPY internal/graph/ ./internal/graph/
 COPY gqlgen.yml ./
 
 # Generate Ent code
