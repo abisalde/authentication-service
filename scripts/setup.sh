@@ -113,17 +113,21 @@ EOF
 log "🐳 Generating Docker Compose override prod..."
 mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.prod.yml" <<EOF
+version: '3.8'
 services:
   mysql:
     image: mysql:lts
     container_name: mysql-prod
     environment:
-      MYSQL_ROOT_PASSWORD: '$PROD_DB_PASSWORD'
-      MYSQL_USER: '$DB_USER'
-      MYSQL_PASSWORD: '$PROD_DB_PASSWORD'
-      MYSQL_DATABASE: '$PROD_DB_NAME'
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
+      MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
+      MYSQL_USER: "$DB_USER"
+      MYSQL_PASSWORD: "$PROD_DB_PASSWORD"
+      MYSQL_DATABASE: "$PROD_DB_NAME"
+    secrets:
+      - prod_db_password
     ports:
-      - '$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT'
+      - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
       - mysql_data:/var/lib/mysql
       - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -139,9 +143,13 @@ services:
     image: redis/redis-stack:7.2.0-v17
     container_name: redis-prod
     environment:
-      - REDIS_ARGS=--save 1200 32
-      - REDIS_PASSWORD='$REDIS_PASSWORD'
+      REDIS_ARGS: "--save 1200 32" 
+      REDIS_PASSWORD: "$REDIS_PASSWORD"
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
     volumes:
+      - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
     healthcheck:
       test:
@@ -158,7 +166,7 @@ services:
     networks:
       - auth-prod-net
     ports:
-      - '$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT'
+      - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
     deploy:
       replicas: 1
       restart_policy:
@@ -192,24 +200,30 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: mysql
-      DB_PORT: '$MYSQL_DEV_PROD_HOST_PORT'
-      DB_USER: '$DB_USER'
-      DB_PASSWORD: $PROD_DB_PASSWORD'
-      DB_NAME: '$PROD_DB_NAME'
-      DB_SSL_MODE: require
+      DB_PORT: "$MYSQL_DEV_CONTAINER_PORT"
+      DB_USER: "$DB_USER"
+      DB_PASSWORD: "$PROD_DB_PASSWORD"
+      DB_NAME: "$PROD_DB_NAME"
+      DB_SSL_MODE: disable
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.auth-service.rule=Host($API_URL)
-      - traefik.http.routers.auth-service.entrypoints=websecure
-      - traefik.http.routers.auth-service.tls.certresolver=letsencrypt
-      - traefik.http.services.auth-service.loadbalancer.server.port=8080
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)" # Use backticks or escape quotes within quotes for rule value
+      - "traefik.http.routers.auth-service.entrypoints=websecure"
+      - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
+      - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
     networks:
       - auth-prod-net
 
 volumes:
   mysql_data:
   redis_data:
+
+secrets:
+  prod_db_password:
+    file: ../secrets/.prod_db_password
+  redis_password:
+    file: ../secrets/.redis_password
 
 networks:
   auth-prod-net:

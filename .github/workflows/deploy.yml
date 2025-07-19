@@ -69,7 +69,6 @@ jobs:
       - name: Generate Docker Compose for Production
         run: |
           ./scripts/setup.sh
-          cat deployments/docker-compose.prod.yml | grep -v 'password'
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
