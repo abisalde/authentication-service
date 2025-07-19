@@ -13,6 +13,18 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 
+# Copy only what's needed for code generation
+COPY internal/database/ent/schema/ ./internal/database/ent/schema/
+COPY internal/graph/schemas/ ./internal/graph/schemas/
+COPY gqlgen.yml ./
+
+# Generate Ent code
+RUN go generate ./internal/database/ent
+
+# Generate GraphQL code
+RUN go run github.com/99designs/gqlgen generate --verbose
+
+
 # Copy the entire project
 COPY . .
 
