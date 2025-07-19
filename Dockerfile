@@ -12,14 +12,6 @@ RUN apk add --no-cache git gcc musl-dev
 COPY go.mod go.sum ./
 RUN go mod download
 
-
-# Generate Ent code
-RUN go generate ./internal/database/ent
-
-# Generate GraphQL code
-RUN go run github.com/99designs/gqlgen generate --verbose
-
-
 # Copy the entire project
 COPY . .
 
