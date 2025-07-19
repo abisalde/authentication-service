@@ -15,7 +15,7 @@ RUN go mod download
 # Copy the entire project
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /authentication-service ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o authentication-service ./cmd/server
 
 # Final stage
 FROM alpine:latest
@@ -39,7 +39,7 @@ COPY --from=builder --chown=appuser /app/authentication-service .
 
 
 # Create directory for certificates
-RUN mkdir -p /home/appuser/cockroach/certs
+# RUN mkdir -p /home/appuser/cockroach/certs
 
 
 CMD ["./authentication-service"]
