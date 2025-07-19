@@ -9,7 +9,7 @@ log() {
 }
 
 log "🔴 Resetting cluster..."
-docker-compose -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.prod.yml" down -v
+docker-compose -f "$DEPLOY_DIR/docker-compose.yml" -f down -v
 
 
 log "✅ Cluster stopped and volumes removed"
