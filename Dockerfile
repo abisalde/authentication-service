@@ -21,6 +21,10 @@ COPY gqlgen.yml ./
 # Generate Ent code
 RUN go generate ./internal/database/ent
 
+# Workaround for local package resolution
+RUN go mod edit -replace github.com/abisalde/authentication-service=. && \
+    go mod tidy
+
 # Generate GraphQL code
 RUN go run github.com/99designs/gqlgen generate --verbose
 
