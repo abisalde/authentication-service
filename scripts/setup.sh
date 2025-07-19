@@ -118,15 +118,15 @@ services:
     image: mysql:lts
     container_name: mysql-prod
     environment:
-      MYSQL_ROOT_PASSWORD: $PROD_DB_PASSWORD
-      MYSQL_USER: $DB_USER
-      MYSQL_PASSWORD: $PROD_DB_PASSWORD
-      MYSQL_DATABASE: $PROD_DB_NAME
+      MYSQL_ROOT_PASSWORD: "$PROD_DB_PASSWORD"
+      MYSQL_USER: "$DB_USER"
+      MYSQL_PASSWORD: "$PROD_DB_PASSWORD"
+      MYSQL_DATABASE: "$PROD_DB_NAME"
     ports:
       - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
       - mysql_data:/var/lib/mysql
-      - authentication-service/secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "$PROD_DB_NAME"]
       interval: 5s
@@ -140,7 +140,7 @@ services:
     container_name: redis-prod
     environment:
       - REDIS_ARGS=--save 1200 32
-      - REDIS_PASSWORD=$REDIS_PASSWORD
+      - REDIS_PASSWORD="$REDIS_PASSWORD"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -149,7 +149,7 @@ services:
           'CMD',
           'redis-cli',
           '-a',
-          $REDIS_PASSWORD,
+          "$REDIS_PASSWORD",
           'ping',
         ]
       interval: 5s
@@ -192,10 +192,10 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: mysql
-      DB_PORT: $MYSQL_DEV_PROD_HOST_PORT
-      DB_USER: $DB_USER
-      DB_PASSWORD: $PROD_DB_PASSWORD
-      DB_NAME: $PROD_DB_NAME
+      DB_PORT: "$MYSQL_DEV_PROD_HOST_PORT"
+      DB_USER: "$DB_USER"
+      DB_PASSWORD: "$PROD_DB_PASSWORD"
+      DB_NAME: "$PROD_DB_NAME"
       DB_SSL_MODE: require
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
