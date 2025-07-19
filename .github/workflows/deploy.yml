@@ -18,7 +18,7 @@ on:
 
 env:
  REGISTRY: ghcr.io
- IMAGE_NAME: ${{ github.repository }}/authentication-service
+ IMAGE_NAME: ${{ github.repository }}
  IMAGE_TAG: ${{ github.sha }}
  COMPOSE_DIR: deployments
 
@@ -38,7 +38,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GHCR_PAT }}
 
       - name: Generate Docker Compose for Production
         run: |
@@ -115,7 +115,7 @@ jobs:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           COMPOSE_DIR: ${{ env.COMPOSE_DIR }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_DEFAULT_PLATFORM: linux/amd64   
