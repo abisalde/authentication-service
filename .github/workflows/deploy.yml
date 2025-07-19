@@ -1,6 +1,22 @@
 name: Authentication Service Deployment
 
 on: 
+
+  pull_request:
+    branches:
+      - 'release/**'
+    paths: 
+    - 'cmd/**'
+    - 'pkg/**'
+    - 'go.mod'
+    - 'go.sum'
+    - '.github/workflows/deploy.yml'
+    - 'deployments/**'
+    - 'internal/**'
+    - 'scripts/**'
+    - 'Dockerfile'
+    - 'gqlgen.yml'
+
   push:
     branches:
       - 'release/**'
