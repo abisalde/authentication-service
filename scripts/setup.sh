@@ -132,7 +132,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - auth-net
+      - auth-prod-net
 
   redis:
     image: redis/redis-stack:7.2.0-v17
@@ -157,18 +157,35 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - auth-net
+      - auth-prod-net
     ports:
       - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
+  
+  traefik:
+    image: traefik:v3.4
+    command:
+      - --providers.docker
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=princeabisal@gmail.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - auth-prod-net
+
 
   auth-service:
-    build:
-      context: ../
-      dockerfile: Dockerfile
+    image: ${IMAGE_NAME:-ghcr.io/abisalde/authentication-service}:latest
     depends_on:
       mysql:
         condition: service_healthy
@@ -182,13 +199,19 @@ services:
       DB_NAME: $PROD_DB_NAME
       DB_SSL_MODE: require
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.auth-service.rule=Host(`api.abisalde.dev`)
+      - traefik.http.routers.auth-service.entrypoints=websecure
+      - traefik.http.routers.auth-service.tls.certresolver=letsencrypt
+      - traefik.http.services.auth-service.loadbalancer.server.port=8080
 
 volumes:
   mysql_data:
   redis_data:
 
 networks:
-  auth-net:
+  auth-prod-net:
     driver: bridge
 EOF
 
