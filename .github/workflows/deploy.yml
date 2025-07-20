@@ -122,9 +122,7 @@ jobs:
         shell: /usr/bin/bash -e {0}
 
       - name: Generate Docker Compose for Production
-        run: |
-          ./scripts/setup.sh > deployments/docker-compose.prod.yml
-          cat deployments/docker-compose.prod.yml | grep -v 'password'
+        run: ./scripts/setup.sh > deployments/docker-compose.prod.yml
 
       - name: Set environment variables
         run: |
