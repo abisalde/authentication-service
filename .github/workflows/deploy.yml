@@ -32,15 +32,16 @@ on:
     - 'Dockerfile'
     - 'gqlgen.yml'
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  IMAGE_TAG: ${{ github.sha }}
-  COMPOSE_DIR: deployments
+
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      IMAGE_TAG: ${{ github.sha }}
+      COMPOSE_DIR: deployments
     permissions:
       contents: read
       packages: write 
