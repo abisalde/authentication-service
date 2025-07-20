@@ -37,8 +37,8 @@ EXPOSE 6379
 # Copy binary and migrations
 COPY --from=builder --chown=appuser /app/authentication-service .
 COPY --from=builder --chown=appuser /app/internal/configs ./internal/configs
-RUN touch .env
-COPY --from=builder --chown=1000:1000 /app/.env .
+# RUN touch .env
+# COPY --from=builder --chown=1000:1000 /app/.env .
 
 
 # Create directory for certificates
