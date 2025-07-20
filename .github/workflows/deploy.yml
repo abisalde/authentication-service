@@ -160,13 +160,19 @@ jobs:
       
       - name: Health check
         run: |
-          docker-compose -f deployments/docker-compose.prod.yml exec mysql mysqladmin ping -h localhost --silent
+          docker-compose -f deployments/docker-compose.prod.yml exec mysql mysqladmin ping -h localhost -u appuser -p $DB_PASSWORD --silent
           docker-compose -f deployments/docker-compose.prod.yml exec redis redis-cli -a $REDIS_PASSWORD ping | grep -q PONG
           docker-compose -f deployments/docker-compose.prod.yml exec auth-service curl -f http://localhost:8080/health || exit 1
           echo "All services are healthy."
           docker-compose -f deployments/docker-compose.prod.yml logs --tail=100
           docker-compose -f deployments/docker-compose.prod.yml down --remove-orphans
           echo "Deployment completed successfully."
+      
+      - name: Check MySQL Container Logs (if it fails)
+        if: failure()
+        run: docker logs mysql
+        shell: /usr/bin/bash -e {0}
+
         env:
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}

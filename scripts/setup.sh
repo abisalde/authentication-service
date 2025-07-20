@@ -113,7 +113,7 @@ EOF
 log "🐳 Generating Docker Compose override prod..."
 mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.prod.yml" <<EOF
-version: '3.8'
+
 services:
   mysql:
     image: mysql:lts
