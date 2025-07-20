@@ -17,7 +17,7 @@ API_URL="api.abisalde.dev"
 
 # Port Configuration
 MYSQL_DEV_HOST_PORT=3388
-MYSQL_DEV_PROD_HOST_PORT=3308
+MYSQL_DEV_PROD_HOST_PORT=3306
 MYSQL_DEV_CONTAINER_PORT=3306
 REDIS_DEV_HOST_PORT=6388
 REDIS_DEV_CONTAINER_PORT=6379
@@ -231,6 +231,7 @@ secrets:
 
 networks:
   auth-prod-net:
+    name: auth-prod-net
     driver: bridge
 EOF
 
