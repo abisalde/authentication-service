@@ -199,6 +199,12 @@ services:
     volumes:
       - ./letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - auth-prod-net
     deploy:
@@ -226,6 +232,13 @@ services:
       DB_NAME: "$PROD_DB_NAME"
       DB_SSL_MODE: disable
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
+    volumes:
+      - ../internal/configs:/home/appuser/internal/configs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)"
