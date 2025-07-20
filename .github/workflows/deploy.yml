@@ -100,6 +100,9 @@ jobs:
       - name: Make setup script executable
         run: chmod +x ./scripts/setup.sh
 
+      - name: Create empty prod compose file
+        run: touch deployments/docker-compose.prod.yml && echo "test content" > deployments/docker-compose.prod.yml
+
       - name: Debug Generated docker-compose.prod.yml location and content
         run: |
           echo "--- Current Working Directory ---"
