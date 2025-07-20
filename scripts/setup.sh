@@ -183,6 +183,7 @@ services:
   
   traefik:
     image: traefik:v3.4
+    container_name: traefik
     command:
       - --providers.docker
       - --entrypoints.web.address=:80
@@ -190,6 +191,10 @@ services:
       - --certificatesresolvers.letsencrypt.acme.email=princeabisal@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=digitalocean
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=10
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+      - --api.dashboard=true
     ports:
       - "80:80"
       - "443:443"
@@ -225,7 +230,7 @@ services:
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)"
+      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`) && PathPrefix(`/`)"
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
@@ -233,6 +238,7 @@ services:
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.routers.auth-service-http.middlewares=redirect-to-https"
       - "traefik.http.routers.auth-service-http.entrypoints=web"
+      - "traefik.http.services.auth-service.loadbalancer.passhostheader=true"
     networks:
       - auth-prod-net
 
