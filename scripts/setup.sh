@@ -224,7 +224,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - ../.env
     environment:
+      APP_ENV: "production"
       DB_HOST: mysql
       DB_PORT: "$MYSQL_DEV_CONTAINER_PORT"
       DB_USER: "$DB_USER"
@@ -234,6 +237,7 @@ services:
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     volumes:
       - ../internal/configs:/home/appuser/internal/configs:ro
+      - ../.env:/home/appuser/.env:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
