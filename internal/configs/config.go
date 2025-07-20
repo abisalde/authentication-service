@@ -79,8 +79,13 @@ func Load(env string) (*Config, error) {
 }
 
 func (c *Config) SQL_DSB() string {
-	log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+	log.Printf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s",
 		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
+	if c.Env.CurrentEnv == "production" {
+		log.Println("I got here because this is production")
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s",
+			c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
+	}
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		c.DB.User, c.DB.Password, c.DB.Host, 3306, c.DB.Name,
