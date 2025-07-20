@@ -211,8 +211,8 @@ services:
       context: ../
       dockerfile: Dockerfile
     volumes:
-      - ./internal/configs:/app/internal/configs:ro 
-      - ./.env:/app/.env 
+      - ../internal/configs:/app/internal/configs:ro 
+      - ../.env:/app/.env 
     depends_on:
       mysql:
         condition: service_healthy
