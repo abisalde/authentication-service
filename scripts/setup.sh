@@ -232,6 +232,10 @@ services:
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
+      - "traefik.http.routers.auth-service.tls=true"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.auth-service-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.auth-service-http.entrypoints=web"
     networks:
       - auth-prod-net
 
