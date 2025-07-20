@@ -173,7 +173,7 @@ services:
     networks:
       - auth-prod-net
     ports:
-      - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
+      - "$REDIS_DEV_CONTAINER_PORT:$REDIS_DEV_CONTAINER_PORT"
     deploy:
       restart_policy:
         condition: on-failure
@@ -194,7 +194,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
       - "--api.dashboard=true"
     ports:
-      - "80:80"
+      - "8080:8080"
       - "443:443"
     volumes:
       - ./letsencrypt:/letsencrypt
