@@ -122,7 +122,6 @@ services:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_USER: "$DB_USER"
-      MYSQL_PASSWORD: "$PROD_DB_PASSWORD"
       MYSQL_DATABASE: "$PROD_DB_NAME"
     secrets:
       - prod_db_password
