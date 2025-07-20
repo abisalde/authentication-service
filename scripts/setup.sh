@@ -136,6 +136,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
     networks:
       - auth-prod-net
 
@@ -231,8 +232,9 @@ secrets:
 
 networks:
   auth-prod-net:
-    name: auth-prod-net
+    name: auth-prod-network
     driver: bridge
+    attachable: true
 EOF
 
 # 6. Update configuration files
