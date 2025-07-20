@@ -139,6 +139,12 @@ services:
       start_period: 30s
     networks:
       - auth-prod-net
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
   redis:
     image: redis/redis-stack:7.2.0-v17
@@ -169,9 +175,11 @@ services:
     ports:
       - "$APP_DEV_HOST_PORT:$APP_DEV_CONTAINER_PORT"
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
   
   traefik:
     image: traefik:v3.4
@@ -190,11 +198,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - auth-prod-net
+    deploy:
+      restart_policy:
+        condition: on-failure # or always, or unless-stopped
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
 
   auth-service:
-    image: ${IMAGE_NAME:-ghcr.io/abisalde/authentication-service}:latest
-    env_file: ../.env
+    build:
+      context: ../
+      dockerfile: Dockerfile
     volumes:
       - ./internal/configs:/app/internal/configs:ro 
       - ./.env:/app/.env 
@@ -217,6 +232,10 @@ services:
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
+      - "traefik.http.routers.auth-service.tls=true"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.auth-service-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.auth-service-http.entrypoints=web"
     networks:
       - auth-prod-net
 
