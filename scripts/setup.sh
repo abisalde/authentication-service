@@ -230,7 +230,7 @@ services:
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`) && PathPrefix(`/`)"
+      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)"
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
