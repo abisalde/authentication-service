@@ -193,7 +193,7 @@ services:
 
   auth-service:
     image: ${IMAGE_NAME:-ghcr.io/abisalde/authentication-service}:latest
-    env_file: .env
+    env_file: ../.env
     volumes:
       - ./internal/configs:/app/internal/configs:ro 
       - ./.env:/app/.env 
