@@ -160,7 +160,7 @@ jobs:
       
       - name: Health check
         run: |
-          docker-compose -f deployments/docker-compose.prod.yml exec mysql mysqladmin ping -h localhost -u appuser -p $DB_PASSWORD --silent
+          docker-compose -f deployments/docker-compose.prod.yml exec mysql mysqladmin ping -h localhost --silent
           docker-compose -f deployments/docker-compose.prod.yml exec redis redis-cli -a $REDIS_PASSWORD ping | grep -q PONG
           docker-compose -f deployments/docker-compose.prod.yml exec auth-service curl -f http://localhost:8080/health || exit 1
           echo "All services are healthy."
