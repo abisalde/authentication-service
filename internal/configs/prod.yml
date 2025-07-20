@@ -1,8 +1,8 @@
 # prod.yml
 database:
-  mysql_dsn: "appuser:${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:3308)/authserviceprod?parseTime=true"
+  mysql_dsn: "appuser:${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:3306)/authserviceprod?parseTime=true"
   host: "mysql"
-  port: 3308
+  port: 3306
   user: "appuser"
   password: ${PROD_DB_PASSWORD:-prod_db_password}
   dbname: "authserviceprod"
