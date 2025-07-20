@@ -122,7 +122,13 @@ jobs:
         shell: /usr/bin/bash -e {0}
 
       - name: Generate Docker Compose for Production
-        run: ./scripts/setup.sh > deployments/docker-compose.prod.yml
+        run: |
+          echo "Generating docker-compose.prod.yml..."
+          # Ensure the script is executable
+          chmod +x ./scripts/setup.sh
+          # Run the setup script to generate the compose file
+          ./scripts/setup.sh
+        shell: /usr/bin/bash -e {0}
 
       - name: Set environment variables
         run: |
