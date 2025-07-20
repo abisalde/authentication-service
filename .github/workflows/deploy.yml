@@ -103,23 +103,23 @@ jobs:
       - name: Create empty prod compose file
         run: touch deployments/docker-compose.prod.yml && echo "test content" > deployments/docker-compose.prod.yml
 
-      - name: Debug Generated docker-compose.prod.yml location and content
-        run: |
-          echo "--- Current Working Directory ---"
-          pwd
-          echo "--- Project Root (as calculated by setup.sh) ---"
-          # This command assumes PROJECT_ROOT is an environment variable set by setup.sh
-          # or you know its expected path relative to the current directory.
-          # If setup.sh is in scripts/, and this workflow runs from root:
-          echo "Expected DEPLOY_DIR: ${{ github.workspace }}/deployments"
-          echo "--- Files in Repository Root ---"
-          ls -lA ${{ github.workspace }}
-          echo "--- Files in Deployments Directory ---"
-          ls -lA ${{ github.workspace }}/deployments || echo "deployments directory not found or empty."
-          echo "--- Contents of deployments/docker-compose.prod.yml ---"
-          cat -A deployments/docker-compose.prod.yml || echo "docker-compose.prod.yml not found."
-          echo "--------------------------------------------------------"
-        shell: /usr/bin/bash -e {0}
+      # - name: Debug Generated docker-compose.prod.yml location and content
+      #   run: |
+      #     echo "--- Current Working Directory ---"
+      #     pwd
+      #     echo "--- Project Root (as calculated by setup.sh) ---"
+      #     # This command assumes PROJECT_ROOT is an environment variable set by setup.sh
+      #     # or you know its expected path relative to the current directory.
+      #     # If setup.sh is in scripts/, and this workflow runs from root:
+      #     echo "Expected DEPLOY_DIR: ${{ github.workspace }}/deployments"
+      #     echo "--- Files in Repository Root ---"
+      #     ls -lA ${{ github.workspace }}
+      #     echo "--- Files in Deployments Directory ---"
+      #     ls -lA ${{ github.workspace }}/deployments || echo "deployments directory not found or empty."
+      #     echo "--- Contents of deployments/docker-compose.prod.yml ---"
+      #     cat -A deployments/docker-compose.prod.yml || echo "docker-compose.prod.yml not found."
+      #     echo "--------------------------------------------------------"
+      #   shell: /usr/bin/bash -e {0}
 
       - name: Generate Docker Compose for Production
         run: |
@@ -145,6 +145,14 @@ jobs:
           echo "SENDER_EMAIL=${{ env.SENDER_EMAIL }}" >> .env
           echo "APP_ENV=production" >> .env
           echo "APP_HOST_PORT=8080" >> .env
+      
+      - name: Debug Files in Deployments Directory
+        run: |
+          echo "--- Files in Deployments Directory ---"
+          echo "--- Files in Repository Root ---"
+          ls -lA ${{ github.workspace }}
+          echo "--------------------------------------------------------"
+        shell: /usr/bin/bash -e {0}
 
       - name: Deploy using Docker Compose
         run: docker-compose -f deployments/docker-compose.prod.yml up -d --remove-orphans --build

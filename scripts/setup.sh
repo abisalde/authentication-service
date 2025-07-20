@@ -117,7 +117,7 @@ version: '3.8'
 services:
   mysql:
     image: mysql:lts
-    container_name: mysql-prod
+    container_name: mysql
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
@@ -141,7 +141,7 @@ services:
 
   redis:
     image: redis/redis-stack:7.2.0-v17
-    container_name: redis-prod
+    container_name: redis
     environment:
       REDIS_ARGS: "--save 1200 32" 
       REDIS_PASSWORD: "$REDIS_PASSWORD"
