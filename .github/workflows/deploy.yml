@@ -97,6 +97,16 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
 
+      - name: Make setup script executable
+        run: chmod +x ./scripts/setup.sh
+
+      - name: Debug Generated docker-compose.prod.yml
+        run: |
+          echo "--- Contents of deployments/docker-compose.prod.yml ---"
+          cat -A deployments/docker-compose.prod.yml
+          echo "--------------------------------------------------------"
+        shell: /usr/bin/bash -e {0}
+
       - name: Generate Docker Compose for Production
         run: |
           ./scripts/setup.sh > deployments/docker-compose.prod.yml
@@ -119,9 +129,8 @@ jobs:
           echo "APP_HOST_PORT=8080" >> .env
 
       - name: Deploy using Docker Compose
-        run: |
-          docker-compose -f deployments/docker-compose.prod.yml up -d --remove-orphans --build
-          docker-compose -f deployments/docker-compose.prod.yml ps
+        run: docker-compose -f deployments/docker-compose.prod.yml up -d --remove-orphans --build
+        working-directory: ${{ env.COMPOSE_DIR }}
       
       - name: Health check
         run: |
