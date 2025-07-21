@@ -139,8 +139,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
-      MYSQL_USER: "appuser"
-      MYSQL_DATABASE: "authserviceprod"
+      MYSQL_USER: "$DB_USER"
+      MYSQL_DATABASE: "$PROD_DB_NAME"
     secrets:
       - prod_db_password
     volumes:
@@ -241,7 +241,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth-service.rule=Host(`$API_URL`)"
+      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)"
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
