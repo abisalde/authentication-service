@@ -23,6 +23,8 @@ REDIS_DEV_HOST_PORT=6388
 REDIS_DEV_CONTAINER_PORT=6379
 APP_DEV_HOST_PORT=8080
 APP_DEV_CONTAINER_PORT=8080
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
 
 # --------------------------
 # Functions
@@ -37,7 +39,14 @@ generate_dev_password() {
 }
 
 generate_prod_password() {
-  openssl rand -hex 32
+  local base=$(< /dev/urandom tr -dc 'a-z' | head -c 13)
+  local upper=$(< /dev/urandom tr -dc 'A-Z' | head -c 1)
+  local number=$(< /dev/urandom tr -dc '0-9' | head -c 1)
+  local special=$(< /dev/urandom tr -dc '@#' | head -c 1)
+  
+  # Shuffle the components
+  echo -n "$base$upper$number$special" | fold -w1 | shuf | tr -d '\n'
+  echo
 }
 
 verify_directories() {
@@ -92,11 +101,20 @@ APP_DEV_HOST_PORT=$APP_DEV_HOST_PORT
 PORT=$APP_DEV_HOST_PORT
 APP_ENV=development
 JWT_SECRET=$JWT_SECRET
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
 EOF
 
 
 # Create init-db.sql for initial database setup
 cat > "$SECRETS_DIR/init-db.sql" <<EOF
+SET GLOBAL validate_password.policy = LOW;
+SET GLOBAL validate_password.length = 12;
+SET GLOBAL validate_password.mixed_case_count = 1;
+SET GLOBAL validate_password.number_count = 1;
+SET GLOBAL validate_password.special_char_count = 1;
+
+
 CREATE DATABASE IF NOT EXISTS $PROD_DB_NAME;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$PROD_DB_PASSWORD';
 GRANT ALL PRIVILEGES ON $PROD_DB_NAME.* TO '$DB_USER'@'%';
@@ -121,12 +139,10 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
-      MYSQL_USER: "$DB_USER"
-      MYSQL_DATABASE: "$PROD_DB_NAME"
+      MYSQL_USER: "appuser"
+      MYSQL_DATABASE: "authserviceprod"
     secrets:
       - prod_db_password
-    ports:
-      - "$MYSQL_DEV_PROD_HOST_PORT:$MYSQL_DEV_CONTAINER_PORT"
     volumes:
       - mysql_data:/var/lib/mysql
       - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -138,22 +154,17 @@ services:
       start_period: 30s
     networks:
       - auth-prod-net
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+    restart: on-failure
 
   redis:
     image: redis/redis-stack:7.2.0-v17
     container_name: redis
     environment:
       REDIS_ARGS: "--save 1200 32" 
-      REDIS_PASSWORD: "$REDIS_PASSWORD"
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
     secrets:
       - redis_password
+    command: ['/redis-entrypoint.sh']
     volumes:
       - ../scripts/start-redis.sh:/redis-entrypoint.sh:ro
       - redis_data:/data
@@ -163,7 +174,7 @@ services:
           'CMD',
           'redis-cli',
           '-a',
-          "$REDIS_PASSWORD",
+          '$$(cat /run/secrets/redis_password)',
           'ping',
         ]
       interval: 5s
@@ -171,14 +182,7 @@ services:
       retries: 5
     networks:
       - auth-prod-net
-    ports:
-      - "$REDIS_DEV_CONTAINER_PORT:$REDIS_DEV_CONTAINER_PORT"
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+    restart: on-failure
   
   traefik:
     image: traefik:v3.4
@@ -191,9 +195,8 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--api.dashboard=true"
     ports:
-      - "8080:8080"
+      - "80:80"
       - "443:443"
     volumes:
       - ./letsencrypt:/letsencrypt
@@ -206,12 +209,7 @@ services:
       start_period: 30s
     networks:
       - auth-prod-net
-    deploy:
-      restart_policy:
-        condition: on-failure # or always, or unless-stopped
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+    restart: always
 
 
   auth-service:
@@ -223,10 +221,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - ../.env
     environment:
       APP_ENV: "production"
+      ENVIRONMENT: "production"
       DB_HOST: mysql
       DB_PORT: "$MYSQL_DEV_CONTAINER_PORT"
       DB_USER: "$DB_USER"
@@ -244,17 +241,17 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth-service.rule=Host(\`$API_URL\`)"
+      - "traefik.http.routers.auth-service.rule=Host(`$API_URL`)"
       - "traefik.http.routers.auth-service.entrypoints=websecure"
       - "traefik.http.routers.auth-service.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
-      - "traefik.http.routers.auth-service.tls=true"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.routers.auth-service-http.middlewares=redirect-to-https"
       - "traefik.http.routers.auth-service-http.entrypoints=web"
       - "traefik.http.services.auth-service.loadbalancer.passhostheader=true"
     networks:
       - auth-prod-net
+    restart: on-failure
 
 volumes:
   mysql_data:
@@ -270,7 +267,6 @@ networks:
   auth-prod-net:
     name: auth-prod-network
     driver: bridge
-    attachable: true
 EOF
 
 # 6. Update configuration files
