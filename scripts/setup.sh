@@ -108,9 +108,8 @@ EOF
 
 # Create init-db.sql for initial database setup
 cat > "$DEPLOY_DIR/init-db.sql" <<EOF
-SET GLOBAL validate_password.policy = 0;
 
-CREATE DATABASE IF NOT EXISTS $PROD_DB_NAME;
+CREATE DATABASE IF NOT EXISTS $PROD_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$PROD_DB_PASSWORD';
 GRANT ALL PRIVILEGES ON $PROD_DB_NAME.* TO '$DB_USER'@'%';
 FLUSH PRIVILEGES;
@@ -146,7 +145,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
     networks:
       - auth-prod-net
     restart: on-failure
