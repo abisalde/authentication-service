@@ -40,9 +40,9 @@ generate_dev_password() {
 
 generate_prod_password() {
   local base=$(< /dev/urandom tr -dc 'a-z' | head -c 10)
-  local upper=$(< /dev/urandom tr -dc 'A-Z' | head -c 2)
+  local upper=$(< /dev/urandom tr -dc 'A-Z' | head -c 3)
   local number=$(< /dev/urandom tr -dc '0-9' | head -c 3)
-  local special=$(< /dev/urandom tr -dc '!#[]-*' | head -c 3)
+  local special=$(< /dev/urandom tr -dc '!$#[]*' | head -c 3)
   
   # Shuffle the components
   echo -n "$base$upper$number$special" | fold -w1 | shuf | tr -d '\n'
