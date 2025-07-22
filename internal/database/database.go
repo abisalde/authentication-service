@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/url"
 	"sync"
 	"time"
 
@@ -103,9 +102,7 @@ func migrate(ctx context.Context, client *ent.Client, isDev bool) error {
 
 func initDatabase(cfg *configs.Config) (*sql.DB, error) {
 
-	dbUrl := url.QueryEscape(cfg.SQL_DSB())
-
-	sqlDB, err := sql.Open(dialect.MySQL, dbUrl)
+	sqlDB, err := sql.Open(dialect.MySQL, cfg.SQL_DSB())
 	if err != nil {
 		return nil, fmt.Errorf("❌ Failed to open database connection: %w", err)
 	}
