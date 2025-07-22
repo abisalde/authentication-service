@@ -107,13 +107,8 @@ EOF
 
 
 # Create init-db.sql for initial database setup
-cat > "$SECRETS_DIR/init-db.sql" <<EOF
-SET GLOBAL validate_password.policy = LOW;
-SET GLOBAL validate_password.length = 12;
-SET GLOBAL validate_password.mixed_case_count = 1;
-SET GLOBAL validate_password.number_count = 1;
-SET GLOBAL validate_password.special_char_count = 1;
-
+cat > "$DEPLOY_DIR/init-db.sql" <<EOF
+SET GLOBAL validate_password.policy = 0;
 
 CREATE DATABASE IF NOT EXISTS $PROD_DB_NAME;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$PROD_DB_PASSWORD';
@@ -133,9 +128,9 @@ mkdir -p "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/docker-compose.prod.yml" <<EOF
 
 services:
-  mysql:
+  mysql-prod:
     image: mysql:lts
-    container_name: mysql
+    container_name: mysql-prod
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/prod_db_password
       MYSQL_PASSWORD_FILE: /run/secrets/prod_db_password
@@ -144,8 +139,8 @@ services:
     secrets:
       - prod_db_password
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ../secrets/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_prod_data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p=$PROD_DB_PASSWORD"]
       interval: 5s
@@ -217,14 +212,14 @@ services:
       context: ../
       dockerfile: Dockerfile
     depends_on:
-      mysql:
+      mysql-prod:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       APP_ENV: "production"
       ENVIRONMENT: "production"
-      DB_HOST: mysql
+      DB_HOST: mysql-prod
       DB_PORT: "$MYSQL_DEV_CONTAINER_PORT"
       DB_USER: "$DB_USER"
       DB_PASSWORD: "$PROD_DB_PASSWORD"
@@ -254,7 +249,7 @@ services:
     restart: on-failure
 
 volumes:
-  mysql_data:
+  mysql_prod_data:
   redis_data:
 
 secrets:
@@ -304,8 +299,8 @@ sed "${SED_INPLACE[@]}" \
 
 # Update production config  
 sed "${SED_INPLACE[@]}" \
-  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql:${MYSQL_DEV_PROD_HOST_PORT})/${PROD_DB_NAME}?parseTime=true\"|" \
-  -e "s|^\([[:space:]]*host:\).*|\1 \"mysql\"|" \
+  -e "s|^\([[:space:]]*mysql_dsn:\).*|\1 \"appuser:\${PROD_DB_PASSWORD:-prod_db_password}@tcp(mysql-prod:${MYSQL_DEV_PROD_HOST_PORT})/${PROD_DB_NAME}?parseTime=true\"|" \
+  -e "s|^\([[:space:]]*host:\).*|\1 \"mysql-prod\"|" \
   -e "s|^\([[:space:]]*port:\).*|\1 ${MYSQL_DEV_PROD_HOST_PORT}|" \
   -e "s|^\([[:space:]]*user:\).*|\1 \"${DB_USER}\"|" \
   -e "s|^\([[:space:]]*password:\).*|\1 \${PROD_DB_PASSWORD:-prod_db_password}|" \
