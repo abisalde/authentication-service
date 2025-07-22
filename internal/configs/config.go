@@ -3,7 +3,6 @@ package configs
 import (
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,9 +81,8 @@ func Load(env string) (*Config, error) {
 func (c *Config) SQL_DSB() string {
 	if c.Env.CurrentEnv == "production" {
 		log.Println("I got here because this is production ❤️‍🔥 ❤️‍🩹")
-		password := url.QueryEscape(c.DB.Password)
-		urlString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s", c.DB.User, password, c.DB.Host, c.DB.Port, c.DB.Name)
-		log.Printf("I am the URL STRING to dsn==><><>|||><>||>  %s &&&&&&&&& %s", urlString, password)
+		urlString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s", c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
+		log.Printf("I am the URL STRING to dsn==><><>|||><>||>  %s", urlString)
 		return urlString
 	}
 	return fmt.Sprintf(
