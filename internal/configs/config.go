@@ -83,8 +83,10 @@ func (c *Config) SQL_DSB() string {
 		c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
 	if c.Env.CurrentEnv == "production" {
 		log.Println("I got here because this is production ❤️‍🔥 ❤️‍🩹")
-		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s",
+		urlString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s",
 			c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
+		log.Printf("I am the URL STRING to dsn  %s::::===>>><><>>><>>>", urlString)
+		return urlString
 	}
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
