@@ -82,9 +82,9 @@ func Load(env string) (*Config, error) {
 func (c *Config) SQL_DSB() string {
 	if c.Env.CurrentEnv == "production" {
 		log.Println("I got here because this is production ❤️‍🔥 ❤️‍🩹")
-		usernamePassword := url.QueryEscape(fmt.Sprintf("%s:%s", c.DB.User, c.DB.Password))
-		urlString := fmt.Sprintf("%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s", usernamePassword, c.DB.Host, c.DB.Port, c.DB.Name)
-		log.Printf("I am the URL STRING to dsn==><><>|||><>||>  %s &&&&&&&&& %s", urlString, usernamePassword)
+		password := url.QueryEscape(c.DB.Password)
+		urlString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s", c.DB.User, password, c.DB.Host, c.DB.Port, c.DB.Name)
+		log.Printf("I am the URL STRING to dsn==><><>|||><>||>  %s &&&&&&&&& %s", urlString, password)
 		return urlString
 	}
 	return fmt.Sprintf(
