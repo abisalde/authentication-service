@@ -221,10 +221,15 @@ services:
       DB_HOST: mysql-prod
       DB_PORT: "$MYSQL_DEV_CONTAINER_PORT"
       DB_USER: "$DB_USER"
-      DB_PASSWORD: "$PROD_DB_PASSWORD"
       DB_NAME: "$PROD_DB_NAME"
-      DB_SSL_MODE: disable
+      DB_PASSWORD_FILE: /run/secrets/prod_db_password
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      REDIS_ARGS: --save 1200 32
+      DB_SSL_MODE: require
       REDIS_URL: "redis://default:$REDIS_PASSWORD@redis:$REDIS_DEV_CONTAINER_PORT"
+    secrets:
+      - prod_db_password
+      - redis_password
     volumes:
       - ../internal/configs:/home/appuser/internal/configs:ro
       - ../.env:/home/appuser/.env:ro
