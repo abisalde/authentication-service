@@ -145,7 +145,7 @@ services:
       - mysql_prod_data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p=$PROD_DB_PASSWORD"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$(cat /run/secrets/prod_db_password)]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -187,8 +187,15 @@ services:
     container_name: traefik
     command:
       - "--providers.docker=true"
+      - "--providers.docker.network=auth-prod-network"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      - "--entryPoints.websecure.http.tls=true"
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--entrypoints.traefik.address=:8080"
       - "--certificatesresolvers.letsencrypt.acme.email=princeabisal@gmail.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
@@ -196,11 +203,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - ./letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:8080/ping"]
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3

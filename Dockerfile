@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o authentic
 # Final stage
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates postgresql-client mysql-client && \
+RUN apk add --no-cache ca-certificates postgresql-client mysql-client curl wget && \
     adduser -D -g '' appuser
 
 # RUN adduser -D -g '' appuser
