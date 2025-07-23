@@ -83,9 +83,13 @@ chmod 700 "$SECRETS_DIR"
 # Generate passwords
 PROD_DB_PASSWORD=$(generate_prod_password)
 DEV_DB_PASSWORD=$(generate_dev_password)
-echo "$PROD_DB_PASSWORD" > "$SECRETS_DIR/.prod_db_password"
-echo "$DEV_DB_PASSWORD" > "$SECRETS_DIR/.dev_db_password"
-echo "$REDIS_PASSWORD" > "$SECRETS_DIR/.redis_password"
+
+# Write secrets without trailing newline
+echo -n "$PROD_DB_PASSWORD" > "$SECRETS_DIR/.prod_db_password"
+echo -n "$DEV_DB_PASSWORD" > "$SECRETS_DIR/.dev_db_password"
+echo -n "$REDIS_PASSWORD" > "$SECRETS_DIR/.redis_password"
+
+# Secure permissions
 chmod 600 "$SECRETS_DIR"/.*password
 
 # Create .env file for Docker Compose
@@ -147,7 +151,7 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      - auth-prod-net
+      - auth-prod-network
     restart: on-failure
 
   redis:
@@ -175,7 +179,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - auth-prod-net
+      - auth-prod-network
     restart: on-failure
   
   traefik:
@@ -202,7 +206,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - auth-prod-net
+      - auth-prod-network
     restart: always
 
 
@@ -249,7 +253,7 @@ services:
       - "traefik.http.routers.auth-service-http.entrypoints=web"
       - "traefik.http.services.auth-service.loadbalancer.passhostheader=true"
     networks:
-      - auth-prod-net
+      - auth-prod-network
     restart: on-failure
 
 volumes:
@@ -263,7 +267,7 @@ secrets:
     file: ../secrets/.redis_password
 
 networks:
-  auth-prod-net:
+  auth-prod-network:
     name: auth-prod-network
     driver: bridge
 EOF
