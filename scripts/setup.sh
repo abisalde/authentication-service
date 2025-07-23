@@ -145,7 +145,7 @@ services:
       - mysql_prod_data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$(cat /run/secrets/prod_db_password)]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$(cat /run/secrets/prod_db_password)"]
       interval: 5s
       timeout: 5s
       retries: 10
