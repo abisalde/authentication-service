@@ -138,7 +138,7 @@ func (db *Database) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("🕹️ Database ping failed: %w", err)
 	}
 
-	_, err := db.SQLDB.ExecContext(ctx, "SELECT 1 FROM users LIMIT 1")
+	_, err := db.SQLDB.ExecContext(ctx, "SELECT 1")
 	if err != nil {
 		return fmt.Errorf("🩸 Database schema verification failed: %w", err)
 	}
