@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,8 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 					user, err := db.User.Get(ctx, claims.UserID)
 					if err == nil {
 						ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
-						ctx = context.WithValue(ctx, auth.ClientIPKey, r.RemoteAddr)
+						realClientIP := GetClientIP(r)
+						ctx = context.WithValue(ctx, auth.ClientIPKey, realClientIP)
 					}
 				}
 			}
@@ -161,4 +163,24 @@ func stripTokeContext(authHeader string) (string, error) {
 	}
 
 	return authHeader, nil
+}
+
+func GetClientIP(r *http.Request) string {
+
+	log.Printf("This is the X-forwarded-Host I got here: %s", r.Header.Get("X-Forwarded-For"))
+
+	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
+		ips := strings.Split(xForwardedFor, ",")
+		if len(ips) > 0 {
+
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	log.Printf("This is the error from... SPLIT HOST..:%v", err)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
 }

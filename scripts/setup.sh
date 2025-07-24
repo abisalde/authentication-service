@@ -193,7 +193,6 @@ services:
       - "--entryPoints.websecure.http.tls=true"
       - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
       - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
-      - "--api.dashboard=true"
       - "--api.insecure=true"
       - "--entrypoints.traefik.address=:8080"
       - "--certificatesresolvers.letsencrypt.acme.email=princeabisal@gmail.com"
@@ -205,10 +204,17 @@ services:
       - "443:443"
       - "8080:8080"
     volumes:
-      - ./letsencrypt:/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:8080/api/health"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "echo -e 'GET /health HTTP/1.1\r\nHost: localhost\r\n' | nc 127.0.0.1 8080 | grep -q '200 OK'",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3

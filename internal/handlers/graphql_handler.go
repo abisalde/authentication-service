@@ -17,7 +17,7 @@ func GraphQLHandler(srv *handler.Server) fiber.Handler {
 		remoteAddr := c.Context().RemoteAddr().String()
 		app_logger.LogGraphQLRequest(clientIP, remoteAddr)
 
-		ctx := context.WithValue(c.UserContext(), auth.ClientIPKey, remoteAddr)
+		ctx := context.WithValue(c.UserContext(), auth.ClientIPKey, clientIP)
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r = r.WithContext(ctx)
