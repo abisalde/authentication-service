@@ -4,6 +4,7 @@ import (
 	"log"
 
 	server "github.com/abisalde/authentication-service/cmd"
+	"github.com/abisalde/authentication-service/internal/utils"
 )
 
 func main() {
@@ -23,6 +24,10 @@ func main() {
 
 	authService := server.SetupFiberApp(db, gqlSrv, auth)
 
+	portHost := utils.GetListenAddress(appCfg)
+
 	log.Printf("🐳 Hello, Authentication MicroService from Docker <3 🚀::: 🔐 at http://localhost:%s", appCfg.HTTPPort)
-	log.Fatal(authService.Listen(":" + appCfg.HTTPPort))
+	log.Printf("〒 App Current Environment %s ㉿:", appCfg.AppEnv)
+	log.Printf("☞ ☞ %s", portHost)
+	log.Fatal(authService.Listen(portHost))
 }

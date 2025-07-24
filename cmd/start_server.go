@@ -148,11 +148,13 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 }
 
 func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService) *fiber.App {
+	trustedDockerNetworkCIDR := "172.18.0.0/16"
 	authService := fiber.New(fiber.Config{
 		AppName:                 "Authentication Service",
 		ProxyHeader:             fiber.HeaderXForwardedFor,
 		CaseSensitive:           true,
 		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{trustedDockerNetworkCIDR},
 	})
 
 	authService.Use(func(c *fiber.Ctx) error {
