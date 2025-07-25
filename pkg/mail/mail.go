@@ -80,13 +80,13 @@ func (s *SMTPMailService) SendHTMLEmail(ctx context.Context, recipientEmail, sub
 	select {
 	case res := <-resultChan:
 		if res.err != nil {
-			log.Printf("ERROR: Failed to send email via Resend API: %v", res.err)
-			return fmt.Errorf("failed to send HTML email via Resend API: %w", res.err)
+			log.Printf("ERROR: ❌ Failed to send email via Resend API ❌: %v", res.err)
+			return fmt.Errorf("🛠️ Failed to send HTML email via Resend API: %w", res.err)
 		}
-		log.Printf("DEBUG: Email sent successfully via Resend. Message ID: %s", res.sent.Id)
+		log.Printf("DEBUG: ⚙️ Email sent successfully via Resend. Message ID: %s", res.sent.Id)
 		return nil
 	case <-ctx.Done():
-		log.Printf("WARNING: Email sending to %s was cancelled by context.", recipientEmail)
+		log.Printf("WARNING: ⚠️ Email sending to %s was cancelled by context.", recipientEmail)
 		return fmt.Errorf("email sending canceled: %w", ctx.Err())
 	}
 }
