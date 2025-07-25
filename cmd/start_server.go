@@ -62,7 +62,7 @@ func InitConfig() (*configs.Config, *AppConfig, error) {
 		AppEnv:   os.Getenv("APP_ENV"),
 	}
 
-	mail.NewMailService(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort, cfg.Mail.SMTPUsername, cfg.Mail.SMTPPassword, cfg.Mail.SenderEmail)
+	mail.NewMailService(cfg.Mail.EmailAPIKey, cfg.Mail.SenderEmail)
 
 	return cfg, appConfig, nil
 }
@@ -93,7 +93,7 @@ func SetupDatabase(cfg *configs.Config) (*database.Database, *database.RedisCach
 
 func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache, cfg *configs.Config) (server *handler.Server, authResult *service.AuthService) {
 
-	mailerService := mail.NewMailService(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort, cfg.Mail.SMTPUsername, cfg.Mail.SMTPPassword, cfg.Mail.SenderEmail)
+	mailerService := mail.NewMailService(cfg.Mail.EmailAPIKey, cfg.Mail.SenderEmail)
 	cacheService := database.NewCacheService(redisClient.RawClient())
 	userRepo := repository.NewUserRepository(db.Client)
 

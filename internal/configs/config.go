@@ -35,6 +35,7 @@ type Config struct {
 		SMTPUsername string
 		SMTPPassword string
 		SenderEmail  string
+		EmailAPIKey  string
 	}
 
 	Env struct {
@@ -65,11 +66,7 @@ func Load(env string) (*Config, error) {
 	cfg.DB.Password = getDBPassword(env)
 	cfg.Redis.Password = getRedisPassword()
 	cfg.Redis.DB = 0
-
-	cfg.Mail.SMTPHost = os.Getenv("SMTP_HOST")
-	cfg.Mail.SMTPPort = os.Getenv("SMTP_PORT")
-	cfg.Mail.SMTPUsername = os.Getenv("SMTP_USERNAME")
-	cfg.Mail.SMTPPassword = os.Getenv("SMTP_PASSWORD")
+	cfg.Mail.EmailAPIKey = os.Getenv("EMAIL_API_KEY")
 	cfg.Mail.SenderEmail = os.Getenv("SENDER_EMAIL")
 	cfg.Env.CurrentEnv = os.Getenv("APP_ENV")
 

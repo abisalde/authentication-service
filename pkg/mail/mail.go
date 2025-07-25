@@ -3,112 +3,90 @@ package mail
 import (
 	"context"
 	"fmt"
-	"net/smtp"
-	"strings"
+	"log"
+
+	"github.com/abisalde/authentication-service/internal/graph/errors"
+	"github.com/abisalde/authentication-service/internal/graph/model"
+	"github.com/resend/resend-go/v2"
 )
 
 type SMTPMailService struct {
-	smtpHost     string
-	smtpPort     string
-	smtpUsername string
-	smtpPassword string
-	senderEmail  string
+	client      *resend.Client
+	senderEmail string
 }
 
 type Mailer interface {
-	SendPlainTextEmail(ctx context.Context, recipientEmail, subject, body string) error
-	SendHTMLEmail(ctx context.Context, recipientEmail, subject, htmlBody string) error
+	SendHTMLEmail(ctx context.Context, recipientEmail, senderEmail, subject, htmlBody string) error
 }
 
-func NewMailService(host, port, username, password, from string) *SMTPMailService {
+func NewMailService(emailApiKey, defaultSenderEmail string) *SMTPMailService {
+	if emailApiKey == "" {
+		log.Println("⚠️ WARNING: Resend API Key is empty. Email sending will likely fail.")
+	}
+
+	if defaultSenderEmail == "" {
+		log.Println("WARNING: Default sender email is empty. Emails might not be sent or might be rejected.")
+	}
+
+	client := resend.NewClient(emailApiKey)
 	return &SMTPMailService{
-		smtpHost:     host,
-		smtpPort:     port,
-		smtpUsername: username,
-		smtpPassword: password,
-		senderEmail:  from,
+		client:      client,
+		senderEmail: defaultSenderEmail,
 	}
 }
 
-func (s *SMTPMailService) sendEmail(recipientEmail, subject, body string) error {
-	from := s.senderEmail
-	to := []string{recipientEmail}
-
-	msg := []byte(
-		"From: " + from + "\r\n" +
-			"To: " + recipientEmail + "\r\n" +
-			"Subject: " + subject + "\r\n" +
-			"\r\n" +
-			body)
-
-	auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
-	return smtp.SendMail(fmt.Sprintf("%s:%s", s.smtpHost, s.smtpPort), auth, from, to, msg)
-}
-
-func (s *SMTPMailService) SendPlainTextEmail(ctx context.Context, recipientEmail, subject, body string) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-
-		errChan := make(chan error, 1)
-		go func() {
-			errChan <- s.sendEmail(recipientEmail, subject, body)
-		}()
-
-		select {
-		case err := <-errChan:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (s *SMTPMailService) SendHTMLEmail(ctx context.Context, recipientEmail, subject, htmlBody string) error {
+func (s *SMTPMailService) SendHTMLEmail(ctx context.Context, recipientEmail, subject, htmlBody string, overrideSenderEmail ...string) error {
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.NewTypedError("Something went wrong, please try again", model.ErrorTypeBadRequest, map[string]interface{}{"code": "EMAIL"})
 	default:
 
 	}
 
-	from := s.senderEmail
-	to := []string{recipientEmail}
-
-	msg := []string{
-		"From: " + from,
-		"To: " + recipientEmail,
-		"Subject: " + subject,
-		"MIME-Version: 1.0",
-		"Content-Type: text/html; charset=\"utf-8\"",
-		"",
-		htmlBody,
+	fromEmail := s.senderEmail
+	if len(overrideSenderEmail) > 0 && overrideSenderEmail[0] != "" {
+		fromEmail = overrideSenderEmail[0]
+		log.Printf("DEBUG: Overriding sender email to: %s", fromEmail)
+	} else {
+		log.Printf("DEBUG: Using default sender email: %s", fromEmail)
 	}
 
-	message := []byte(strings.Join(msg, "\r\n"))
+	if fromEmail == "" {
+		return fmt.Errorf("sender email is empty, cannot send email")
+	}
 
-	auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
+	params := &resend.SendEmailRequest{
+		From:    fromEmail,
+		To:      []string{recipientEmail},
+		Html:    htmlBody,
+		ReplyTo: "No Reply <noreply@abisalde.dev>",
+		Subject: subject,
+	}
 
-	errChan := make(chan error, 1)
+	resultChan := make(chan struct {
+		sent *resend.SendEmailResponse
+		err  error
+	}, 1)
+
 	go func() {
-		errChan <- smtp.SendMail(
-			fmt.Sprintf("%s:%s", s.smtpHost, s.smtpPort),
-			auth,
-			from,
-			to,
-			message,
-		)
+		sent, err := s.client.Emails.Send(params)
+		resultChan <- struct {
+			sent *resend.SendEmailResponse
+			err  error
+		}{sent: sent, err: err}
 	}()
 
 	select {
-	case err := <-errChan:
-		if err != nil {
-			return fmt.Errorf("failed to send HTML email: %w", err)
+	case res := <-resultChan:
+		if res.err != nil {
+			log.Printf("ERROR: Failed to send email via Resend API: %v", res.err)
+			return fmt.Errorf("failed to send HTML email via Resend API: %w", res.err)
 		}
+		log.Printf("DEBUG: Email sent successfully via Resend. Message ID: %s", res.sent.Id)
 		return nil
 	case <-ctx.Done():
+		log.Printf("WARNING: Email sending to %s was cancelled by context.", recipientEmail)
 		return fmt.Errorf("email sending canceled: %w", ctx.Err())
 	}
 }
