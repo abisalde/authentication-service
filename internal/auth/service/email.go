@@ -4,23 +4,11 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"fmt"
 	"html/template"
 )
 
 //go:embed templates/verification_email_template.html
 var emailTemplate embed.FS
-
-func (s *AuthService) SendVerificationCode(ctx context.Context, email, code string) error {
-	subject := "Verify Your Email Address"
-	body := fmt.Sprintf(`
-		Here's your one-time passcode: %s
-		
-		This code will expire in 5 minutes
-	`, code)
-
-	return s.mailService.SendPlainTextEmail(ctx, email, subject, body)
-}
 
 func (s *AuthService) SendVerificationCodeEmail(ctx context.Context, email, code string) error {
 	tmplData, err := emailTemplate.ReadFile("templates/verification_email_template.html")
