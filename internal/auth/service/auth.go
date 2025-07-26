@@ -37,10 +37,10 @@ type AuthService struct {
 	userRepo    repository.UserRepository
 	cfg         *configs.Config
 	cache       CacheService
-	mailService *mail.SMTPMailService
+	mailService mail.Mailer
 }
 
-func NewAuthService(userRepo repository.UserRepository, cfg *configs.Config, cache CacheService, mailService *mail.SMTPMailService) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, cfg *configs.Config, cache CacheService, mailService mail.Mailer) *AuthService {
 	return &AuthService{
 		userRepo:    userRepo,
 		cfg:         cfg,
