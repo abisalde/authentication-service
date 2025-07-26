@@ -77,6 +77,7 @@ func (s *ResendMailService) SendHTMLEmail(ctx context.Context, recipientEmail, s
 	params := &resend.SendEmailRequest{
 		From:    fromEmail,
 		To:      []string{recipientEmail},
+		Text:    plainTextBody,
 		Html:    htmlBody,
 		ReplyTo: "No Reply <noreply@abisalde.dev>",
 		Subject: subject,
