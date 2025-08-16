@@ -6,15 +6,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/abisalde/authentication-service/internal/auth"
 	"github.com/abisalde/authentication-service/internal/auth/cookies"
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/database/ent"
-	customErrors "github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/pkg/jwt"
-	"github.com/gofiber/fiber/v2"
 )
 
 func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.Handler) http.Handler {
@@ -56,8 +55,22 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 				}
 
 				claims, err := jwt.ValidateToken(tokenString)
-				if err == nil && claims.IsAccessToken() {
-					user, err := db.User.Get(ctx, claims.UserID)
+				if err != nil {
+					log.Printf("Token validation failed:  %v", err)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+
+				if claims.IsAccessToken() {
+					userID, parseErr := strconv.ParseInt(claims.Subject, 10, 64)
+
+					if parseErr != nil {
+						log.Printf("Invalid user ID in token claims: %v", parseErr)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+
+					user, err := db.User.Get(ctx, userID)
 					if err == nil {
 						ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
 						realClientIP := GetClientIP(r)
@@ -69,82 +82,6 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-func Middleware(db *ent.Client) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-
-		if c.UserContext() == nil {
-			c.SetUserContext(context.Background())
-		}
-
-		tokenString, err := stripToken(c)
-
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-
-		if tokenString == "" {
-			if fiberCtx, ok := auth.GetFiberWebContext(c.Context()); ok {
-				tokenString = fiberCtx.Cookies(cookies.BrowserAccessTokenName)
-			}
-		}
-
-		claims, err := jwt.ValidateToken(tokenString)
-		if err != nil {
-			status := fiber.StatusUnauthorized
-			if err == customErrors.ExpiredToken {
-				status = fiber.StatusForbidden
-			}
-			return c.Status(status).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-
-		if !claims.IsAccessToken() {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Refresh tokens cannot be used for authentication",
-			})
-		}
-
-		user, err := db.User.Get(c.Context(), claims.UserID)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "User not found",
-			})
-		}
-
-		ctx := c.UserContext()
-		ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
-		ctx = context.WithValue(ctx, auth.ClientIPKey, c.IP())
-		ctx = context.WithValue(ctx, auth.FiberContextWeb, c)
-
-		auth.DebugContext(ctx)
-
-		c.SetUserContext(ctx)
-		return c.Next()
-	}
-}
-
-func stripToken(c *fiber.Ctx) (string, error) {
-	authHeader := c.Get("Authorization")
-	authHeader = strings.TrimSpace(authHeader)
-	if authHeader == "" {
-		return "", errors.New("authorization header is empty")
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-		token := strings.TrimSpace(parts[1])
-		if token == "" {
-			return "", errors.New("token missing after Bearer")
-		}
-		return token, nil
-	}
-
-	return c.Cookies(cookies.BrowserAccessTokenName), nil
 }
 
 func stripTokeContext(authHeader string) (string, error) {

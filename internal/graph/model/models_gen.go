@@ -30,9 +30,9 @@ type Mutation struct {
 }
 
 type OAuthLoginInput struct {
-	Code        string        `json:"code"`
-	Provider    OAuthProvider `json:"provider"`
-	RedirectURI *string       `json:"redirectUri,omitempty"`
+	Platform OAuthPlatform    `json:"platform"`
+	Provider OAuthProvider    `json:"provider"`
+	Mode     PasswordLessMode `json:"mode"`
 }
 
 type PageInfo struct {
@@ -42,7 +42,16 @@ type PageInfo struct {
 	EndCursor       *string `json:"endCursor,omitempty"`
 }
 
+type PasswordLessResponse struct {
+	AuthURL  string `json:"authUrl"`
+	StateKey string `json:"stateKey"`
+}
+
 type Query struct {
+}
+
+type RefreshTokenResponse struct {
+	Token string `json:"token"`
 }
 
 type RegisterInput struct {
@@ -72,6 +81,7 @@ type UserAddress struct {
 	Country    *string `json:"country,omitempty"`
 }
 
+// Update a User Address streetName, city, zipCode, country
 type UserAddressInput struct {
 	StreetName *string `json:"streetName,omitempty"`
 	City       *string `json:"city,omitempty"`
@@ -83,6 +93,7 @@ type UserAddressInput struct {
 	State *string `json:"state,omitempty"`
 }
 
+// UserConnection, the edges and pageInfo
 type UserConnection struct {
 	Edges    []*UserEdge `json:"edges"`
 	PageInfo *PageInfo   `json:"pageInfo"`
@@ -166,6 +177,7 @@ const (
 	ErrorTypeInvalidInput        ErrorType = "INVALID_INPUT"
 	ErrorTypeToken               ErrorType = "TOKEN"
 	ErrorTypeUnauthenticated     ErrorType = "UNAUTHENTICATED"
+	ErrorTypeRefreshToken        ErrorType = "REFRESH_TOKEN"
 )
 
 var AllErrorType = []ErrorType{
@@ -182,11 +194,12 @@ var AllErrorType = []ErrorType{
 	ErrorTypeInvalidInput,
 	ErrorTypeToken,
 	ErrorTypeUnauthenticated,
+	ErrorTypeRefreshToken,
 }
 
 func (e ErrorType) IsValid() bool {
 	switch e {
-	case ErrorTypeInternalServerError, ErrorTypeNotFound, ErrorTypeBadRequest, ErrorTypeForbidden, ErrorTypeConflict, ErrorTypeRateLimited, ErrorTypePassword, ErrorTypeEmail, ErrorTypeEmailExists, ErrorTypeWeakPassword, ErrorTypeInvalidInput, ErrorTypeToken, ErrorTypeUnauthenticated:
+	case ErrorTypeInternalServerError, ErrorTypeNotFound, ErrorTypeBadRequest, ErrorTypeForbidden, ErrorTypeConflict, ErrorTypeRateLimited, ErrorTypePassword, ErrorTypeEmail, ErrorTypeEmailExists, ErrorTypeWeakPassword, ErrorTypeInvalidInput, ErrorTypeToken, ErrorTypeUnauthenticated, ErrorTypeRefreshToken:
 		return true
 	}
 	return false
@@ -227,7 +240,62 @@ func (e ErrorType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Login & OAUTH
+type OAuthPlatform string
+
+const (
+	OAuthPlatformWeb    OAuthPlatform = "WEB"
+	OAuthPlatformMobile OAuthPlatform = "MOBILE"
+)
+
+var AllOAuthPlatform = []OAuthPlatform{
+	OAuthPlatformWeb,
+	OAuthPlatformMobile,
+}
+
+func (e OAuthPlatform) IsValid() bool {
+	switch e {
+	case OAuthPlatformWeb, OAuthPlatformMobile:
+		return true
+	}
+	return false
+}
+
+func (e OAuthPlatform) String() string {
+	return string(e)
+}
+
+func (e *OAuthPlatform) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = OAuthPlatform(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid OAuthPlatform", str)
+	}
+	return nil
+}
+
+func (e OAuthPlatform) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *OAuthPlatform) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e OAuthPlatform) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Login & OAUTH/PasswordLess
 type OAuthProvider string
 
 const (
@@ -283,6 +351,62 @@ func (e OAuthProvider) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type PasswordLessMode string
+
+const (
+	PasswordLessModeLogin    PasswordLessMode = "LOGIN"
+	PasswordLessModeRegister PasswordLessMode = "REGISTER"
+)
+
+var AllPasswordLessMode = []PasswordLessMode{
+	PasswordLessModeLogin,
+	PasswordLessModeRegister,
+}
+
+func (e PasswordLessMode) IsValid() bool {
+	switch e {
+	case PasswordLessModeLogin, PasswordLessModeRegister:
+		return true
+	}
+	return false
+}
+
+func (e PasswordLessMode) String() string {
+	return string(e)
+}
+
+func (e *PasswordLessMode) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PasswordLessMode(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PasswordLessMode", str)
+	}
+	return nil
+}
+
+func (e PasswordLessMode) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PasswordLessMode) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PasswordLessMode) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Rate Limit Methods enum
 type RateLimitMethods string
 
 const (
@@ -292,6 +416,7 @@ const (
 	RateLimitMethodsChangePassword         RateLimitMethods = "CHANGE_PASSWORD"
 	RateLimitMethodsVerifyAccount          RateLimitMethods = "VERIFY_ACCOUNT"
 	RateLimitMethodsResendVerificationCode RateLimitMethods = "RESEND_VERIFICATION_CODE"
+	RateLimitMethodsRefreshToken           RateLimitMethods = "REFRESH_TOKEN"
 )
 
 var AllRateLimitMethods = []RateLimitMethods{
@@ -301,11 +426,12 @@ var AllRateLimitMethods = []RateLimitMethods{
 	RateLimitMethodsChangePassword,
 	RateLimitMethodsVerifyAccount,
 	RateLimitMethodsResendVerificationCode,
+	RateLimitMethodsRefreshToken,
 }
 
 func (e RateLimitMethods) IsValid() bool {
 	switch e {
-	case RateLimitMethodsLogin, RateLimitMethodsRegister, RateLimitMethodsUpdateProfile, RateLimitMethodsChangePassword, RateLimitMethodsVerifyAccount, RateLimitMethodsResendVerificationCode:
+	case RateLimitMethodsLogin, RateLimitMethodsRegister, RateLimitMethodsUpdateProfile, RateLimitMethodsChangePassword, RateLimitMethodsVerifyAccount, RateLimitMethodsResendVerificationCode, RateLimitMethodsRefreshToken:
 		return true
 	}
 	return false
@@ -346,6 +472,7 @@ func (e RateLimitMethods) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UserRole maybe ADMIN or USER
 type UserRole string
 
 const (

@@ -4,20 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"strconv"
 	"time"
 
+	"github.com/abisalde/authentication-service/internal/auth/cookies"
 	"github.com/abisalde/authentication-service/internal/auth/repository"
 	"github.com/abisalde/authentication-service/internal/configs"
 	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/internal/graph/model"
+	"github.com/abisalde/authentication-service/pkg/jwt"
 	"github.com/abisalde/authentication-service/pkg/mail"
+	"github.com/abisalde/authentication-service/pkg/verification"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	LoginStreamKey = "login_events"
-	LoginGroup     = "login_event_group"
+	LoginStreamKey     = "login_events"
+	LoginGroup         = "login_event_group"
+	RefreshCachePrefix = "refresh_token:"
 )
 
 type LoginEvent struct {
@@ -29,7 +35,7 @@ type LoginEvent struct {
 type CacheService interface {
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Get(ctx context.Context, key string, dest interface{}) error
-	Delete(ctx context.Context, key string) error
+	Delete(ctx context.Context, keys ...string) error
 	RawClient() *redis.Client
 }
 
@@ -199,4 +205,103 @@ func (s *AuthService) IsTokenBlacklisted(ctx context.Context, token string) bool
 
 func (s *AuthService) UpdateUserPassword(ctx context.Context, userID int64, passwordHash string) error {
 	return s.userRepo.UpdateNewPassword(ctx, userID, passwordHash)
+}
+
+func (s *AuthService) StoreRefreshToken(ctx context.Context, userID int64, token string) (string, error) {
+
+	encryptedToken, err := verification.EncryptToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	hashedToken, err := verification.HashToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	cacheKey := fmt.Sprintf("%s%d", RefreshCachePrefix, userID)
+	err = s.cache.Set(ctx, cacheKey, encryptedToken, cookies.RefreshTokenExpiry)
+
+	if err != nil {
+		return "", err
+	}
+
+	hashKey := fmt.Sprintf("%s%s", cacheKey, ":hash")
+	err = s.cache.Set(ctx, hashKey, hashedToken, cookies.RefreshTokenExpiry)
+
+	if err != nil {
+		return "", err
+	}
+
+	return hashedToken, nil
+}
+
+func (s *AuthService) ValidateRefreshToken(ctx context.Context, userID int64, token string) (bool, error) {
+	cacheKey := fmt.Sprintf("%s%d", RefreshCachePrefix, userID)
+	hashKey := fmt.Sprintf("%s%s", cacheKey, ":hash")
+
+	var storedHash string
+	err := s.cache.Get(ctx, hashKey, &storedHash)
+
+	if err != nil {
+		log.Printf("Error from stored hash %v", err)
+		return false, err
+	}
+
+	valid, err := verification.VerifyTokenHash(token, storedHash)
+	log.Printf("Error from VerifyTokenHash %v", err)
+	if err != nil || !valid {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (s *AuthService) InvalidateRefreshToken(ctx context.Context, userID int64) error {
+	cacheKey := fmt.Sprintf("%s%d", RefreshCachePrefix, userID)
+	hashKey := fmt.Sprintf("%s%s", cacheKey, ":hash")
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	return s.cache.Delete(ctx, cacheKey, hashKey)
+}
+
+func (s *AuthService) CheckIfRefreshTokenMatchClaims(ctx context.Context, uid int64) error {
+	cacheKey := fmt.Sprintf("%s%d", RefreshCachePrefix, uid)
+	var token string
+	err := s.cache.Get(ctx, cacheKey, &token)
+
+	if err != nil {
+		return errors.ErrSomethingWentWrong
+	}
+
+	decryptedToken, err := verification.DecryptToken(token)
+	if err != nil {
+		return errors.ErrSomethingWentWrong
+	}
+
+	claims, err := jwt.ValidateToken(decryptedToken)
+	if err != nil {
+		return errors.InvalidToken
+	}
+
+	tokenUserID, err := strconv.ParseInt(claims.Subject, 10, 64)
+	if err != nil {
+		return errors.UserNotFound
+	}
+
+	if tokenUserID != uid {
+		log.Printf("user ID mismatch: expected %d, got %d", uid, tokenUserID)
+		errName := fmt.Sprintf("user ID mismatch: expected %d, got %d", uid, tokenUserID)
+		return errors.NewTypedError(errName, model.ErrorTypeBadRequest, map[string]interface{}{
+			"code": "BAD_REQUEST",
+		})
+	}
+
+	return nil
+}
+
+func (s *AuthService) FindUsers(ctx context.Context, role *model.UserRole, pagination *model.PaginationInput) (*model.UserConnection, error) {
+	return s.userRepo.FindAllUsers(ctx, role, pagination)
 }

@@ -85,4 +85,25 @@ var (
 			"code": model.ErrorTypeToken,
 		},
 	}
+
+	InvalidUserID = &gqlerror.Error{
+		Message: "Invalid userID, ID not in range",
+		Extensions: map[string]interface{}{
+			"code": model.ErrorTypeBadRequest,
+		},
+	}
+
+	InvalidRefreshTokenValidation = &gqlerror.Error{
+		Message: "Unable to validate refresh token, try again or Logout and Login again",
+		Extensions: map[string]interface{}{
+			"code": model.ErrorTypeRefreshToken,
+		},
+	}
+
+	AccessTokenGeneration = &gqlerror.Error{
+		Message: "There's an error generating token, please try again",
+		Extensions: map[string]interface{}{
+			"code": model.ErrorTypeRefreshToken,
+		},
+	}
 )

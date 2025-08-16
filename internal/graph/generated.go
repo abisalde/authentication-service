@@ -64,7 +64,8 @@ type ComplexityRoot struct {
 		ChangePassword         func(childComplexity int, input *model.ChangePasswordInput) int
 		Login                  func(childComplexity int, input model.LoginInput) int
 		Logout                 func(childComplexity int) int
-		OauthLogin             func(childComplexity int, input model.OAuthLoginInput) int
+		PasswordLessAuth       func(childComplexity int, input model.OAuthLoginInput) int
+		RefreshToken           func(childComplexity int, token string, userID int32) int
 		Register               func(childComplexity int, input model.RegisterInput) int
 		ResendVerificationCode func(childComplexity int, input model.ResendVerificationCode) int
 		UpdateProfile          func(childComplexity int, input model.UpdateProfileInput) int
@@ -78,6 +79,11 @@ type ComplexityRoot struct {
 		StartCursor     func(childComplexity int) int
 	}
 
+	PasswordLessResponse struct {
+		AuthURL  func(childComplexity int) int
+		StateKey func(childComplexity int) int
+	}
+
 	PublicUser struct {
 		Email func(childComplexity int) int
 		ID    func(childComplexity int) int
@@ -87,6 +93,10 @@ type ComplexityRoot struct {
 	Query struct {
 		Profile func(childComplexity int) int
 		Users   func(childComplexity int, role *model.UserRole, first *int32, after *string) int
+	}
+
+	RefreshTokenResponse struct {
+		Token func(childComplexity int) int
 	}
 
 	RegisterResponse struct {
@@ -135,12 +145,13 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	Register(ctx context.Context, input model.RegisterInput) (*model.RegisterResponse, error)
 	Login(ctx context.Context, input model.LoginInput) (*model.LoginResponse, error)
-	OauthLogin(ctx context.Context, input model.OAuthLoginInput) (*model.LoginResponse, error)
+	PasswordLessAuth(ctx context.Context, input model.OAuthLoginInput) (*model.PasswordLessResponse, error)
 	Logout(ctx context.Context) (bool, error)
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) (*model.User, error)
 	ChangePassword(ctx context.Context, input *model.ChangePasswordInput) (bool, error)
 	VerifyAccount(ctx context.Context, input model.AccountVerification) (bool, error)
 	ResendVerificationCode(ctx context.Context, input model.ResendVerificationCode) (bool, error)
+	RefreshToken(ctx context.Context, token string, userID int32) (*model.RefreshTokenResponse, error)
 }
 type PublicUserResolver interface {
 	ID(ctx context.Context, obj *model.PublicUser) (string, error)
@@ -228,17 +239,29 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.Logout(childComplexity), true
 
-	case "Mutation.oauthLogin":
-		if e.complexity.Mutation.OauthLogin == nil {
+	case "Mutation.passwordLessAuth":
+		if e.complexity.Mutation.PasswordLessAuth == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_oauthLogin_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_passwordLessAuth_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.OauthLogin(childComplexity, args["input"].(model.OAuthLoginInput)), true
+		return e.complexity.Mutation.PasswordLessAuth(childComplexity, args["input"].(model.OAuthLoginInput)), true
+
+	case "Mutation.refreshToken":
+		if e.complexity.Mutation.RefreshToken == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_refreshToken_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RefreshToken(childComplexity, args["token"].(string), args["userID"].(int32)), true
 
 	case "Mutation.register":
 		if e.complexity.Mutation.Register == nil {
@@ -316,6 +339,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
 
+	case "PasswordLessResponse.authUrl":
+		if e.complexity.PasswordLessResponse.AuthURL == nil {
+			break
+		}
+
+		return e.complexity.PasswordLessResponse.AuthURL(childComplexity), true
+
+	case "PasswordLessResponse.stateKey":
+		if e.complexity.PasswordLessResponse.StateKey == nil {
+			break
+		}
+
+		return e.complexity.PasswordLessResponse.StateKey(childComplexity), true
+
 	case "PublicUser.email":
 		if e.complexity.PublicUser.Email == nil {
 			break
@@ -355,6 +392,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Users(childComplexity, args["role"].(*model.UserRole), args["first"].(*int32), args["after"].(*string)), true
+
+	case "RefreshTokenResponse.token":
+		if e.complexity.RefreshTokenResponse.Token == nil {
+			break
+		}
+
+		return e.complexity.RefreshTokenResponse.Token(childComplexity), true
 
 	case "RegisterResponse.message":
 		if e.complexity.RegisterResponse.Message == nil {
@@ -1000,17 +1044,17 @@ func (ec *executionContext) field_Mutation_login_argsInput(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_oauthLogin_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_passwordLessAuth_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_oauthLogin_argsInput(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_passwordLessAuth_argsInput(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["input"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_oauthLogin_argsInput(
+func (ec *executionContext) field_Mutation_passwordLessAuth_argsInput(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (model.OAuthLoginInput, error) {
@@ -1020,6 +1064,47 @@ func (ec *executionContext) field_Mutation_oauthLogin_argsInput(
 	}
 
 	var zeroVal model.OAuthLoginInput
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_refreshToken_argsToken(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["token"] = arg0
+	arg1, err := ec.field_Mutation_refreshToken_argsUserID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["userID"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_refreshToken_argsToken(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("token"))
+	if tmp, ok := rawArgs["token"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_refreshToken_argsUserID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (int32, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
+	if tmp, ok := rawArgs["userID"]; ok {
+		return ec.unmarshalNInt2int32(ctx, tmp)
+	}
+
+	var zeroVal int32
 	return zeroVal, nil
 }
 
@@ -1510,7 +1595,7 @@ func (ec *executionContext) _Mutation_register(ctx context.Context, field graphq
 				var zeroVal *model.RegisterResponse
 				return zeroVal, err
 			}
-			limit, err := ec.unmarshalNInt2int32(ctx, 8)
+			limit, err := ec.unmarshalNInt2int32(ctx, 4)
 			if err != nil {
 				var zeroVal *model.RegisterResponse
 				return zeroVal, err
@@ -1682,8 +1767,8 @@ func (ec *executionContext) fieldContext_Mutation_login(ctx context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_oauthLogin(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_oauthLogin(ctx, field)
+func (ec *executionContext) _Mutation_passwordLessAuth(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_passwordLessAuth(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1696,7 +1781,7 @@ func (ec *executionContext) _Mutation_oauthLogin(ctx context.Context, field grap
 	}()
 	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().OauthLogin(rctx, fc.Args["input"].(model.OAuthLoginInput))
+		return ec.resolvers.Mutation().PasswordLessAuth(rctx, fc.Args["input"].(model.OAuthLoginInput))
 	})
 
 	if resTmp == nil {
@@ -1705,12 +1790,12 @@ func (ec *executionContext) _Mutation_oauthLogin(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.LoginResponse)
+	res := resTmp.(*model.PasswordLessResponse)
 	fc.Result = res
-	return ec.marshalNLoginResponse2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐLoginResponse(ctx, field.Selections, res)
+	return ec.marshalNPasswordLessResponse2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessResponse(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_oauthLogin(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_passwordLessAuth(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -1718,16 +1803,12 @@ func (ec *executionContext) fieldContext_Mutation_oauthLogin(ctx context.Context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "token":
-				return ec.fieldContext_LoginResponse_token(ctx, field)
-			case "userId":
-				return ec.fieldContext_LoginResponse_userId(ctx, field)
-			case "email":
-				return ec.fieldContext_LoginResponse_email(ctx, field)
-			case "refreshToken":
-				return ec.fieldContext_LoginResponse_refreshToken(ctx, field)
+			case "authUrl":
+				return ec.fieldContext_PasswordLessResponse_authUrl(ctx, field)
+			case "stateKey":
+				return ec.fieldContext_PasswordLessResponse_stateKey(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type LoginResponse", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type PasswordLessResponse", field.Name)
 		},
 	}
 	defer func() {
@@ -1737,7 +1818,7 @@ func (ec *executionContext) fieldContext_Mutation_oauthLogin(ctx context.Context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_oauthLogin_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_passwordLessAuth_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1981,7 +2062,7 @@ func (ec *executionContext) _Mutation_changePassword(ctx context.Context, field 
 				var zeroVal bool
 				return zeroVal, err
 			}
-			limit, err := ec.unmarshalNInt2int32(ctx, 4)
+			limit, err := ec.unmarshalNInt2int32(ctx, 3)
 			if err != nil {
 				var zeroVal bool
 				return zeroVal, err
@@ -2070,7 +2151,7 @@ func (ec *executionContext) _Mutation_verifyAccount(ctx context.Context, field g
 				var zeroVal bool
 				return zeroVal, err
 			}
-			limit, err := ec.unmarshalNInt2int32(ctx, 4)
+			limit, err := ec.unmarshalNInt2int32(ctx, 3)
 			if err != nil {
 				var zeroVal bool
 				return zeroVal, err
@@ -2218,6 +2299,99 @@ func (ec *executionContext) fieldContext_Mutation_resendVerificationCode(ctx con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_resendVerificationCode_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_refreshToken(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_refreshToken(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (any, error) {
+		directive0 := func(rctx context.Context) (any, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Mutation().RefreshToken(rctx, fc.Args["token"].(string), fc.Args["userID"].(int32))
+		}
+
+		directive1 := func(ctx context.Context) (any, error) {
+			operation, err := ec.unmarshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx, "REFRESH_TOKEN")
+			if err != nil {
+				var zeroVal *model.RefreshTokenResponse
+				return zeroVal, err
+			}
+			limit, err := ec.unmarshalNInt2int32(ctx, 3)
+			if err != nil {
+				var zeroVal *model.RefreshTokenResponse
+				return zeroVal, err
+			}
+			duration, err := ec.unmarshalNInt2int32(ctx, 43200)
+			if err != nil {
+				var zeroVal *model.RefreshTokenResponse
+				return zeroVal, err
+			}
+			if ec.directives.RateLimit == nil {
+				var zeroVal *model.RefreshTokenResponse
+				return zeroVal, errors.New("directive rateLimit is not implemented")
+			}
+			return ec.directives.RateLimit(ctx, nil, directive0, operation, limit, duration)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*model.RefreshTokenResponse); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/abisalde/authentication-service/internal/graph/model.RefreshTokenResponse`, tmp)
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.RefreshTokenResponse)
+	fc.Result = res
+	return ec.marshalNRefreshTokenResponse2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRefreshTokenResponse(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_refreshToken(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "token":
+				return ec.fieldContext_RefreshTokenResponse_token(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RefreshTokenResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_refreshToken_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2377,6 +2551,88 @@ func (ec *executionContext) fieldContext_PageInfo_endCursor(_ context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PasswordLessResponse_authUrl(ctx context.Context, field graphql.CollectedField, obj *model.PasswordLessResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PasswordLessResponse_authUrl(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AuthURL, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PasswordLessResponse_authUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PasswordLessResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PasswordLessResponse_stateKey(ctx context.Context, field graphql.CollectedField, obj *model.PasswordLessResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_PasswordLessResponse_stateKey(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.StateKey, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_PasswordLessResponse_stateKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PasswordLessResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2807,6 +3063,47 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RefreshTokenResponse_token(ctx context.Context, field graphql.CollectedField, obj *model.RefreshTokenResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RefreshTokenResponse_token(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Token, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RefreshTokenResponse_token(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RefreshTokenResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -6105,20 +6402,20 @@ func (ec *executionContext) unmarshalInputOAuthLoginInput(ctx context.Context, o
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"code", "provider", "redirectUri"}
+	fieldsInOrder := [...]string{"platform", "provider", "mode"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "code":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("code"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+		case "platform":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("platform"))
+			data, err := ec.unmarshalNOAuthPlatform2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐOAuthPlatform(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Code = data
+			it.Platform = data
 		case "provider":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("provider"))
 			data, err := ec.unmarshalNOAuthProvider2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐOAuthProvider(ctx, v)
@@ -6126,13 +6423,13 @@ func (ec *executionContext) unmarshalInputOAuthLoginInput(ctx context.Context, o
 				return it, err
 			}
 			it.Provider = data
-		case "redirectUri":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("redirectUri"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+		case "mode":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("mode"))
+			data, err := ec.unmarshalNPasswordLessMode2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessMode(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.RedirectURI = data
+			it.Mode = data
 		}
 	}
 
@@ -6691,9 +6988,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "oauthLogin":
+		case "passwordLessAuth":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_oauthLogin(ctx, field)
+				return ec._Mutation_passwordLessAuth(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -6729,6 +7026,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "resendVerificationCode":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_resendVerificationCode(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "refreshToken":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_refreshToken(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -6781,6 +7085,50 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
 		case "endCursor":
 			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var passwordLessResponseImplementors = []string{"PasswordLessResponse"}
+
+func (ec *executionContext) _PasswordLessResponse(ctx context.Context, sel ast.SelectionSet, obj *model.PasswordLessResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, passwordLessResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PasswordLessResponse")
+		case "authUrl":
+			out.Values[i] = ec._PasswordLessResponse_authUrl(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "stateKey":
+			out.Values[i] = ec._PasswordLessResponse_stateKey(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6952,6 +7300,45 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var refreshTokenResponseImplementors = []string{"RefreshTokenResponse"}
+
+func (ec *executionContext) _RefreshTokenResponse(ctx context.Context, sel ast.SelectionSet, obj *model.RefreshTokenResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, refreshTokenResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RefreshTokenResponse")
+		case "token":
+			out.Values[i] = ec._RefreshTokenResponse_token(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7688,6 +8075,16 @@ func (ec *executionContext) unmarshalNOAuthLoginInput2githubᚗcomᚋabisaldeᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNOAuthPlatform2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐOAuthPlatform(ctx context.Context, v any) (model.OAuthPlatform, error) {
+	var res model.OAuthPlatform
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNOAuthPlatform2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐOAuthPlatform(ctx context.Context, sel ast.SelectionSet, v model.OAuthPlatform) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNOAuthProvider2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐOAuthProvider(ctx context.Context, v any) (model.OAuthProvider, error) {
 	var res model.OAuthProvider
 	err := res.UnmarshalGQL(v)
@@ -7708,6 +8105,30 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋabisaldeᚋauthen
 	return ec._PageInfo(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNPasswordLessMode2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessMode(ctx context.Context, v any) (model.PasswordLessMode, error) {
+	var res model.PasswordLessMode
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPasswordLessMode2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessMode(ctx context.Context, sel ast.SelectionSet, v model.PasswordLessMode) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNPasswordLessResponse2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessResponse(ctx context.Context, sel ast.SelectionSet, v model.PasswordLessResponse) graphql.Marshaler {
+	return ec._PasswordLessResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPasswordLessResponse2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPasswordLessResponse(ctx context.Context, sel ast.SelectionSet, v *model.PasswordLessResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PasswordLessResponse(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNPublicUser2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐPublicUser(ctx context.Context, sel ast.SelectionSet, v model.PublicUser) graphql.Marshaler {
 	return ec._PublicUser(ctx, sel, &v)
 }
@@ -7720,6 +8141,20 @@ func (ec *executionContext) unmarshalNRateLimitMethods2githubᚗcomᚋabisalde�
 
 func (ec *executionContext) marshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx context.Context, sel ast.SelectionSet, v model.RateLimitMethods) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) marshalNRefreshTokenResponse2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRefreshTokenResponse(ctx context.Context, sel ast.SelectionSet, v model.RefreshTokenResponse) graphql.Marshaler {
+	return ec._RefreshTokenResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNRefreshTokenResponse2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRefreshTokenResponse(ctx context.Context, sel ast.SelectionSet, v *model.RefreshTokenResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RefreshTokenResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {

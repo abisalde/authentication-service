@@ -12,6 +12,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/abisalde/authentication-service/internal/auth/handler/oauth"
 	"github.com/abisalde/authentication-service/internal/auth/repository"
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/configs"
@@ -91,7 +92,7 @@ func SetupDatabase(cfg *configs.Config) (*database.Database, *database.RedisCach
 	return db, redisCache, nil
 }
 
-func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache, cfg *configs.Config) (server *handler.Server, authResult *service.AuthService) {
+func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache, cfg *configs.Config) (server *handler.Server, authResult *service.AuthService, oauth *service.OAuthService) {
 
 	mailerService := mail.NewMailerService(cfg)
 	cacheService := database.NewCacheService(redisClient.RawClient())
@@ -104,12 +105,14 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 		mailerService,
 	)
 
+	oauthService := service.NewOAuthService(authService)
+
 	worker := worker.NewLastLoginWorker(redisClient.RawClient(), *authService)
 	consumerCtx, consumerCancel := context.WithCancel(context.Background())
 	go worker.Start(consumerCtx)
 	defer consumerCancel()
 
-	resolver := resolvers.NewResolver(db.Client, *authService)
+	resolver := resolvers.NewResolver(db.Client, *authService, *oauthService)
 	auth := directives.NewAuthDirective()
 	rateLimit := directives.NewRateLimitDirective(redisClient)
 	constraint := directives.NewConstraint()
@@ -144,11 +147,13 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 		return next(ctx)
 	})
 
-	return srv, authService
+	return srv, authService, oauthService
 }
 
-func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService) *fiber.App {
+func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService, oauthService *service.OAuthService) *fiber.App {
+	env := os.Getenv("APP_ENV")
 	trustedDockerNetworkCIDR := "172.18.0.0/16"
+
 	authService := fiber.New(fiber.Config{
 		AppName:                 "Authentication Service",
 		ProxyHeader:             fiber.HeaderXForwardedFor,
@@ -176,10 +181,14 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 	}))
 
 	authService.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:8080",
-		AllowMethods: "GET,POST,OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     "http://localhost:8080,http://localhost:3000",
+		AllowMethods:     "GET,POST,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: true,
 	}))
+
+	oauthHandler := oauth.NewOAuthHandler(oauthService)
+	oauthHandler.RegisterRoutes(authService)
 
 	authService.Get("/health", func(c *fiber.Ctx) error {
 		if err := db.HealthCheck(context.Background()); err != nil {
@@ -193,9 +202,18 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 
 	authService.All("/graphql", handlers.GraphQLHandler(gqlSrv))
 
-	authService.Get("/", adaptor.HTTPHandlerFunc(
-		playground.ApolloSandboxHandler("Authentication Service Playground", "/graphql"),
-	))
+	if env == "production" {
+		authService.All("/", func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "backend NotFound",
+				"message": "service rules for the path non-existent",
+			})
+		})
+	} else {
+		authService.Get("/", adaptor.HTTPHandlerFunc(
+			playground.ApolloSandboxHandler("Authentication Service Playground", "/graphql"),
+		))
+	}
 
 	return authService
 }

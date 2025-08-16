@@ -56,8 +56,8 @@ func (r *RedisCache) Get(ctx context.Context, key string, dest interface{}) erro
 	return json.Unmarshal([]byte(val), dest)
 }
 
-func (r *RedisCache) Delete(ctx context.Context, key string) error {
-	return r.client.Del(ctx, key).Err()
+func (r *RedisCache) Delete(ctx context.Context, keys ...string) error {
+	return r.client.Del(ctx, keys...).Err()
 }
 
 func (r *RedisCache) RawClient() *redis.Client {

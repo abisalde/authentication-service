@@ -15,6 +15,10 @@ type LoginResponse {
 	refreshToken: String
 }
 
+type RefreshTokenResponse {
+	token: String!
+}
+
 enum AuthProvider {
 	EMAIL
 	GOOGLE
@@ -36,6 +40,11 @@ type PublicUser {
 	name: String
 }
 
+type PasswordLessResponse {
+	authUrl: String!
+	stateKey: String!
+}
+
 """
 Registration & OAUTH
 """
@@ -46,17 +55,27 @@ type RegisterResponse {
 }
 
 """
-Login & OAUTH
+Login & OAUTH/PasswordLess
 """
 enum OAuthProvider {
 	GOOGLE
 	FACEBOOK
 }
 
+enum OAuthPlatform {
+	WEB
+	MOBILE
+}
+
+enum PasswordLessMode {
+	LOGIN
+	REGISTER
+}
+
 input OAuthLoginInput {
-	code: String!
+	platform: OAuthPlatform!
 	provider: OAuthProvider!
-	redirectUri: String
+	mode: PasswordLessMode!
 }
 
 input ChangePasswordInput {
@@ -68,6 +87,7 @@ input ChangePasswordInput {
 		@constraint(format: "password", minLength: 8, maxLength: 50)
 }
 
+"Rate Limit Methods enum"
 enum RateLimitMethods {
 	LOGIN
 	REGISTER
@@ -75,19 +95,20 @@ enum RateLimitMethods {
 	CHANGE_PASSWORD
 	VERIFY_ACCOUNT
 	RESEND_VERIFICATION_CODE
+	REFRESH_TOKEN
 }
 
 extend type Mutation {
 	"Register a user"
 	register(input: RegisterInput!): RegisterResponse!
-		@rateLimit(operation: "LOGIN", limit: 8, duration: 3600)
+		@rateLimit(operation: "LOGIN", limit: 4, duration: 3600)
 
 	"Login with Email & Password"
 	login(input: LoginInput!): LoginResponse!
 		@rateLimit(operation: "REGISTER", limit: 5, duration: 3600)
 
-	"OauthLogin Facebook, Google"
-	oauthLogin(input: OAuthLoginInput!): LoginResponse!
+	"PasswordLess Facebook, Google"
+	passwordLessAuth(input: OAuthLoginInput!): PasswordLessResponse!
 
 	logout: Boolean! @auth(requires: USER)
 
@@ -99,13 +120,19 @@ extend type Mutation {
 	"Change a User's Password"
 	changePassword(input: ChangePasswordInput): Boolean!
 		@auth(requires: USER)
-		@rateLimit(operation: "CHANGE_PASSWORD", limit: 4, duration: 3600)
+		@rateLimit(operation: "CHANGE_PASSWORD", limit: 3, duration: 3600)
 
 	"Verify User Account"
 	verifyAccount(input: AccountVerification!): Boolean!
-		@rateLimit(operation: "VERIFY_ACCOUNT", limit: 4, duration: 3600)
+		@rateLimit(operation: "VERIFY_ACCOUNT", limit: 3, duration: 3600)
 
 	"Request a New Verification Code"
 	resendVerificationCode(input: ResendVerificationCode!): Boolean!
 		@rateLimit(operation: "RESEND_VERIFICATION_CODE", limit: 5, duration: 3600)
+
+	"""
+	RefreshToken for Logged in User
+	"""
+	refreshToken(token: String!, userID: Int!): RefreshTokenResponse!
+		@rateLimit(operation: "REFRESH_TOKEN", limit: 3, duration: 43200)
 }

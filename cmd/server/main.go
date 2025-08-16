@@ -20,9 +20,9 @@ func main() {
 	}
 	defer db.Close()
 
-	gqlSrv, auth := server.SetupGraphQLServer(db, redisClient, appCfgLoader)
+	gqlSrv, auth, oauth := server.SetupGraphQLServer(db, redisClient, appCfgLoader)
 
-	authService := server.SetupFiberApp(db, gqlSrv, auth)
+	authService := server.SetupFiberApp(db, gqlSrv, auth, oauth)
 
 	portHost := utils.GetListenAddress(appCfg)
 
