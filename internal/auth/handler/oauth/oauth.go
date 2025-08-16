@@ -161,13 +161,13 @@ func (h *OAuthHandler) UnifiedOauthCallBack(c *fiber.Ctx) error {
 			}
 		}
 		c.Cookies(string(auth.OAuthUUIDKey), "")
-		redirectURL := h.oauthService.GetFrontEndRedirectURL(platform, tokens.AccessToken, user.Email)
+		redirectURL := h.oauthService.GetFrontEndRedirectURL(platform, tokens.AccessToken, tokens.RefreshToken, user.Email)
 		c.Set("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
 		return c.Redirect(redirectURL, fiber.StatusTemporaryRedirect)
 	}
 
 	if platform == model.OAuthPlatformMobile {
-		redirectURL := h.oauthService.GetFrontEndRedirectURL(platform, tokens.AccessToken, user.Email)
+		redirectURL := h.oauthService.GetFrontEndRedirectURL(platform, tokens.AccessToken, tokens.RefreshToken, user.Email)
 		return c.Redirect(redirectURL, fiber.StatusTemporaryRedirect)
 	}
 

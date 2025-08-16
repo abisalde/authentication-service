@@ -58,20 +58,20 @@ func GetRedirectUrl(cfg *configs.Config, provider string) string {
 	return fmt.Sprintf("%s/service/oauth/%s/callback", baseApiUrl, provider)
 }
 
-func (s *OAuthService) GetFrontEndRedirectURL(platform model.OAuthPlatform, token, email string) string {
+func (s *OAuthService) GetFrontEndRedirectURL(platform model.OAuthPlatform, token, refresh, email string) string {
 	cfg := s.authService.cfg
 	var redirectURL string
 	frontendURL := "https://authentication-service.netlify.app"
 
 	if platform == model.OAuthPlatformMobile {
-		return fmt.Sprintf("nativeoauthgraphql://passwordless-authentication?token=%s&email=%s", token, email)
+		return fmt.Sprintf("nativeoauthgraphql://passwordless-authentication?token=%s&email=%s&refresh=%s", token, email, refresh)
 	}
 
 	if platform == model.OAuthPlatformWeb {
 		if cfg.Env.CurrentEnv == "production" {
-			redirectURL = fmt.Sprintf("%s/saml/passwordless-authentication?token=%s&email=%s", frontendURL, token, email)
+			redirectURL = fmt.Sprintf("%s/saml/passwordless-authentication?token=%s&email=%s&refresh=%s", frontendURL, token, email, refresh)
 		} else {
-			redirectURL = fmt.Sprintf("http://localhost:3000/saml/passwordless-authentication?token=%s&email=%s", token, email)
+			redirectURL = fmt.Sprintf("http://localhost:3000/saml/passwordless-authentication?token=%s&email=%s&refresh=%s", token, email, refresh)
 		}
 		return redirectURL
 	}
