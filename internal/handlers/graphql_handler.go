@@ -23,7 +23,6 @@ func GraphQLHandler(srv *handler.Server) fiber.Handler {
 			r = r.WithContext(ctx)
 			srv.ServeHTTP(w, r)
 		})
-		c.SetUserContext(ctx)
 		return adaptor.HTTPHandler(handler)(c)
 	}
 }

@@ -16,6 +16,10 @@ var (
 	FiberContextWeb       = contextKey("fiberContextWebApplications")
 	HTTPResponseWriterKey = contextKey("httpResponseWriterForRequest")
 	JWTTokenKey           = contextKey("JWTTokenKey")
+	OAuthStateKey         = contextKey("serviceOAuthState")
+	OAuthPlatformKey      = contextKey("serviceOAuthPlatform")
+	OAuthModeKey          = contextKey("serviceOAuthPasswordLessMode")
+	OAuthUUIDKey          = contextKey("serviceOAuthUUID")
 )
 
 func GetCurrentUser(ctx context.Context) *ent.User {

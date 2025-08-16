@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/abisalde/authentication-service/internal/auth"
@@ -34,16 +35,24 @@ func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (
 		return nil, errors.InvalidCredentialsPassword
 	}
 
-	tokens, err := cookies.GenerateTokenPair(user.ID, user.Email)
+	tokens, err := cookies.GenerateLoginTokenPair(user.ID)
 
 	if err != nil {
+		log.Printf("This is error from cookies.GenerateLoginTokenPair: %v", err)
+		return nil, errors.ErrSomethingWentWrong
+	}
+
+	// Store and Hash the RefreshToken
+	hashedToken, refreshErr := h.authService.StoreRefreshToken(ctx, user.ID, tokens.RefreshToken)
+
+	if refreshErr != nil {
 		return nil, errors.ErrSomethingWentWrong
 	}
 
 	if fiberCtx, ok := ctx.Value(auth.FiberContextWeb).(*fiber.Ctx); ok {
 		err = cookies.CreateBrowserSession(cookies.TokenPair{
 			AccessToken:  tokens.AccessToken,
-			RefreshToken: tokens.RefreshToken,
+			RefreshToken: hashedToken,
 		}, fiberCtx)
 		if err != nil {
 			return nil, errors.ErrSomethingWentWrong
@@ -58,7 +67,7 @@ func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (
 	return &model.LoginResponse{
 		UserId:       user.ID,
 		Token:        tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		RefreshToken: hashedToken,
 		Email:        user.Email,
 	}, nil
 }
@@ -68,6 +77,8 @@ func (h *LoginHandler) ProcessLogout(ctx context.Context) (bool, error) {
 	if currentUser == nil {
 		return false, errors.AuthenticationRequired
 	}
+
+	_ = h.authService.InvalidateRefreshToken(ctx, currentUser.ID)
 
 	token, ok := ctx.Value(auth.JWTTokenKey).(string)
 	if ok && token != "" {

@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	AccessTokenExpiry  = 24 * time.Hour
-	RefreshTokenExpiry = 7 * 24 * time.Hour
+	AccessTokenExpiry      = 12 * time.Hour
+	RefreshTokenExpiry     = 15 * 24 * time.Hour
+	LoginAccessTokenExpiry = 10 * time.Minute
 )
 
 type TokenPair struct {
@@ -16,16 +17,27 @@ type TokenPair struct {
 	RefreshToken string
 }
 
-func GenerateTokenPair(userID int64, email string) (TokenPair, error) {
-	accessToken, err := jwt.GenerateToken(userID, jwt.TokenTypeAccess, email, AccessTokenExpiry)
+func GenerateAccessToken(userID int64) (string, error) {
+	accessToken, err := jwt.GenerateToken(userID, jwt.TokenTypeAccess, AccessTokenExpiry)
 	if err != nil {
-		return TokenPair{}, err
+		return "", err
 	}
 
-	refreshToken, err := jwt.GenerateToken(userID, jwt.TokenTypeRefresh, email, RefreshTokenExpiry)
+	return accessToken, nil
+}
+
+func GenerateLoginTokenPair(userID int64) (*TokenPair, error) {
+	accessToken, err := jwt.GenerateToken(userID, jwt.TokenTypeAccess, LoginAccessTokenExpiry)
 
 	if err != nil {
-		return TokenPair{}, err
+		return nil, err
 	}
-	return TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+
+	refreshToken, err := jwt.GenerateToken(userID, jwt.TokenTypeRefresh, RefreshTokenExpiry)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 }

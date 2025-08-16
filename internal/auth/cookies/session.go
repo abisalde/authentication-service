@@ -23,7 +23,7 @@ func CreateBrowserSession(generatedTokens TokenPair, ctx *fiber.Ctx) error {
 	}
 
 	refreshTokenExpiration := time.Now().Add(RefreshTokenExpiry)
-	accessTokenExpiration := time.Now().Add(AccessTokenExpiry)
+	accessTokenExpiration := time.Now().Add(LoginAccessTokenExpiry)
 
 	ctx.Cookie(&fiber.Cookie{
 		Secure:   isProd,

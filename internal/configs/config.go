@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +39,14 @@ type Config struct {
 
 	Env struct {
 		CurrentEnv string `mapstructure:"currentEnv"`
+		BaseAPIUrl string `mapstructure:"baseAPIUrl"`
+	}
+
+	Providers struct {
+		GoogleClientID     string `mapstructure:"googleClientID"`
+		GoogleClientSecret string `mapstructure:"googleClientSecret"`
+		FBClientID         string `mapstructure:"fbClientID"`
+		FBClientSecret     string `mapstructure:"fbClientSecret"`
 	}
 }
 
@@ -73,8 +80,13 @@ func Load(env string) (*Config, error) {
 	cfg.Mail.SMTPPassword = os.Getenv("SMTP_PASSWORD")
 	cfg.Mail.EmailAPIKey = os.Getenv("EMAIL_API_KEY")
 	cfg.Mail.SenderEmail = os.Getenv("SENDER_EMAIL")
+	cfg.Providers.GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
+	cfg.Providers.GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
+	cfg.Providers.FBClientID = os.Getenv("FACEBOOK_CLIENT_ID")
+	cfg.Providers.FBClientSecret = os.Getenv("FACEBOOK_CLIENT_SECRET")
 
 	cfg.Env.CurrentEnv = os.Getenv("APP_ENV")
+	cfg.Env.BaseAPIUrl = os.Getenv("PRO_BASE_API_URL")
 
 	expandConfig(&cfg, env)
 
@@ -83,9 +95,7 @@ func Load(env string) (*Config, error) {
 
 func (c *Config) SQL_DSB() string {
 	if c.Env.CurrentEnv == "production" {
-		log.Println("I got here because this is production ❤️‍🔥 ❤️‍🩹")
 		urlString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=30s", c.DB.User, c.DB.Password, c.DB.Host, c.DB.Port, c.DB.Name)
-		log.Printf("I am the URL STRING to dsn==><><>|||><>||>  %s", urlString)
 		return urlString
 	}
 	return fmt.Sprintf(

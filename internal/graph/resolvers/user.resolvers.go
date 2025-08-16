@@ -6,7 +6,6 @@ package resolvers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/abisalde/authentication-service/internal/graph/model"
 )
@@ -18,5 +17,11 @@ func (r *queryResolver) Profile(ctx context.Context) (*model.User, error) {
 
 // Users is the resolver for the users field.
 func (r *queryResolver) Users(ctx context.Context, role *model.UserRole, first *int32, after *string) (*model.UserConnection, error) {
-	panic(fmt.Errorf("not implemented: Users - users"))
+	var firstID *int
+	if first != nil {
+		val := int(*first)
+		firstID = &val
+	}
+
+	return r.usersHandler.GetAllUsers(ctx, role, firstID, after)
 }

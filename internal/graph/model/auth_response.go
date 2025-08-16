@@ -12,3 +12,13 @@ type RegisterResponse struct {
 	Message string     `json:"message"`
 	OauthID *string    `json:"oauthId"`
 }
+
+type OAuthUserResponse struct {
+	ID              string  `json:"id"`
+	Email           string  `json:"email"`
+	Name            *string `json:"name,omitempty"`
+	FirstName       string
+	LastName        string
+	Link            string `json:"link"`
+	IsEmailVerified bool   `json:"isEmailVerified"`
+}

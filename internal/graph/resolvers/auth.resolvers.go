@@ -6,7 +6,6 @@ package resolvers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/abisalde/authentication-service/internal/graph"
 	"github.com/abisalde/authentication-service/internal/graph/model"
@@ -22,9 +21,9 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 	return r.Resolver.loginHandler.EmailLogin(ctx, input)
 }
 
-// OauthLogin is the resolver for the oauthLogin field.
-func (r *mutationResolver) OauthLogin(ctx context.Context, input model.OAuthLoginInput) (*model.LoginResponse, error) {
-	panic(fmt.Errorf("not implemented: OauthLogin - oauthLogin"))
+// PasswordLessAuth is the resolver for the passwordLessAuth field.
+func (r *mutationResolver) PasswordLessAuth(ctx context.Context, input model.OAuthLoginInput) (*model.PasswordLessResponse, error) {
+	return r.oauthHandler.InitOAuth(ctx, input)
 }
 
 // Logout is the resolver for the logout field.
@@ -34,7 +33,7 @@ func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
 
 // UpdateProfile is the resolver for the updateProfile field.
 func (r *mutationResolver) UpdateProfile(ctx context.Context, input model.UpdateProfileInput) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: UpdateProfile - updateProfile"))
+	return &model.User{}, nil
 }
 
 // ChangePassword is the resolver for the changePassword field.
@@ -50,6 +49,11 @@ func (r *mutationResolver) VerifyAccount(ctx context.Context, input model.Accoun
 // ResendVerificationCode is the resolver for the resendVerificationCode field.
 func (r *mutationResolver) ResendVerificationCode(ctx context.Context, input model.ResendVerificationCode) (bool, error) {
 	return r.Resolver.registerHandler.ResendVerificationCodeEmail(ctx, input)
+}
+
+// RefreshToken is the resolver for the refreshToken field.
+func (r *mutationResolver) RefreshToken(ctx context.Context, token string, userID int32) (*model.RefreshTokenResponse, error) {
+	return r.Resolver.tokenHandler.HandleRefreshToken(ctx, token, userID)
 }
 
 // ID is the resolver for the id field.

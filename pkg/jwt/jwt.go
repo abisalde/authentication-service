@@ -4,55 +4,75 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	customErrors "github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
+type TokenType string
 type Claims struct {
-	UserID    int64  `json:"userId"`
-	UserEmail string `json:"email"`
-	Type      string `json:"type"` //access or refresh
+	Type TokenType `json:"type"` //access or refresh
 	jwt.RegisteredClaims
 }
 
 const (
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
+	TokenTypeAccess  TokenType = "access"
+	TokenTypeRefresh TokenType = "refresh"
 )
 
-func GetJWTSecret() (string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return "", customErrors.JWTSecretNotConfigured
-	}
-	return secret, nil
+var (
+	secretOnce sync.Once
+	secretKey  []byte
+	loadError  error
+
+	issuer        = "authentication-service"
+	clockSkew     = 30 * time.Second
+	signingMethod = jwt.SigningMethodHS256
+)
+
+func loadSecret() error {
+	secretOnce.Do(func() {
+		val := os.Getenv("JWT_SECRET")
+		if val == "" {
+			loadError = errors.New("JWT secret not configured")
+			return
+		}
+		secretKey = []byte(val)
+	})
+	return loadError
 }
 
-func GenerateToken(userID int64, tokenType, email string, expiration time.Duration) (string, error) {
+func GenerateToken(userID int64, tokenType TokenType, expiration time.Duration) (string, error) {
 	if tokenType != TokenTypeAccess && tokenType != TokenTypeRefresh {
 		return "", customErrors.InvalidTokenType
 	}
-	secret, err := GetJWTSecret()
-	if err != nil {
+
+	if err := loadSecret(); err != nil {
 		return "", err
 	}
 
+	now := time.Now()
+	sub := strconv.FormatInt(userID, 10)
+	jti := uuid.NewString()
+
 	claims := &Claims{
-		UserID:    userID,
-		Type:      tokenType,
-		UserEmail: email,
+		Type: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "authentication-service",
+			ID:        jti,
+			Subject:   sub,
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-clockSkew)),
+			Issuer:    issuer,
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secret))
+	token := jwt.NewWithClaims(signingMethod, claims)
+	tokenString, err := token.SignedString(secretKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -61,8 +81,7 @@ func GenerateToken(userID int64, tokenType, email string, expiration time.Durati
 
 func ValidateToken(tokenString string) (*Claims, error) {
 
-	secret, err := GetJWTSecret()
-	if err != nil {
+	if err := loadSecret(); err != nil {
 		return nil, err
 	}
 
@@ -71,8 +90,8 @@ func ValidateToken(tokenString string) (*Claims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(secret), nil
-	})
+		return secretKey, nil
+	}, jwt.WithLeeway(clockSkew))
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {

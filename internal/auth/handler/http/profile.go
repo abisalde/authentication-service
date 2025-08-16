@@ -23,7 +23,7 @@ func (h *ProfileHandler) GetUserProfile(ctx context.Context) (*model.User, error
 	currentUser := auth.GetCurrentUser(ctx)
 
 	if currentUser == nil {
-		return nil, errors.AuthenticationRequired
+		return &model.User{}, errors.AuthenticationRequired
 	}
 
 	return converters.UserToGraph(currentUser), nil
@@ -36,7 +36,6 @@ func (h *ProfileHandler) HandlePasswordChange(ctx context.Context, input model.C
 	}
 
 	currentUser := auth.GetCurrentUser(ctx)
-
 	if currentUser == nil {
 		return false, errors.AuthenticationRequired
 	}
@@ -46,7 +45,6 @@ func (h *ProfileHandler) HandlePasswordChange(ctx context.Context, input model.C
 	}
 
 	newPasswordHash, err := password.HashPassword(input.NewPassword)
-
 	if err != nil {
 		return false, errors.ErrSomethingWentWrong
 	}

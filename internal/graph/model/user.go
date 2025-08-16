@@ -42,3 +42,7 @@ type PendingUser struct {
 	CreatedAt        time.Time `json:"createdAt"`
 	ExpiresAt        time.Time `json:"expiresAt"`
 }
+type PaginationInput struct {
+	Limit *int    `json:"limit"`
+	After *string `json:"after"`
+}
