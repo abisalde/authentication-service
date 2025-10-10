@@ -101,11 +101,11 @@ enum RateLimitMethods {
 extend type Mutation {
 	"Register a user"
 	register(input: RegisterInput!): RegisterResponse!
-		@rateLimit(operation: "LOGIN", limit: 4, duration: 3600)
+		@rateLimit(operation: "REGISTER", limit: 4, duration: 3600)
 
 	"Login with Email & Password"
 	login(input: LoginInput!): LoginResponse!
-		@rateLimit(operation: "REGISTER", limit: 5, duration: 3600)
+		@rateLimit(operation: "LOGIN", limit: 5, duration: 3600)
 
 	"PasswordLess Facebook, Google"
 	passwordLessAuth(input: OAuthLoginInput!): PasswordLessResponse!
