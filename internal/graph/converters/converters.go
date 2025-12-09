@@ -12,15 +12,15 @@ func UserToGraph(user *ent.User) *model.User {
 	}
 
 	return &model.User{
-		ID:              user.ID,
-		Email:           user.Email,
-		Username:        username,
-		Provider:        model.AuthProvider(user.Provider),
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		CreatedAt:       user.CreatedAt,
-		UpdatedAt:       user.UpdatedAt,
-		OauthId:         &user.OauthID,
+		ID:        user.ID,
+		Email:     user.Email,
+		Username:  username,
+		Provider:  model.AuthProvider(user.Provider),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		OauthId:   &user.OauthID,
 		Address: &model.UserAddress{
 			StreetName: &user.StreetName,
 			City:       &user.City,

@@ -355,4 +355,3 @@ func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsern
 
 	return nil
 }
-
