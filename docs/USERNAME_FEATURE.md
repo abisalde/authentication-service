@@ -17,6 +17,7 @@ This feature allows users to set and check the availability of usernames during 
    - Cache key format: `username_exists:{username}`
    - Cache invalidation on username updates
    - Reduces database load by ~95% for repeated lookups
+   - **Singleflight pattern** prevents cache stampede on concurrent requests
 
 3. **API Layer (GraphQL)**
    - Query: `checkUsernameAvailability(username: String!): UsernameAvailability!`
@@ -30,11 +31,13 @@ This feature allows users to set and check the availability of usernames during 
 - **Cache Miss**: ~5-10ms response time, single indexed database query
 - **Cache TTL**: 5 minutes (configurable)
 - **Concurrent Requests**: Designed for 100,000+ concurrent users
+- **Cache Stampede Prevention**: Singleflight ensures concurrent requests share a single DB query
 
 ### Cache Strategy
 - **Read-Through Cache**: Check cache first, fallback to database
 - **Write-Through Cache**: Update database and invalidate/update cache atomically
 - **Cache Invalidation**: On username changes, old and new usernames are updated
+- **Singleflight Deduplication**: Concurrent cache misses for the same username result in only one database query
 
 ### Database Optimization
 - **Indexed Lookups**: All username queries use database indexes
@@ -84,8 +87,26 @@ mutation UpdateProfile {
 ## Implementation Details
 
 ### Service Layer (`internal/auth/service/auth.go`)
-- `CheckUsernameAvailability(ctx, username)`: Checks cache, falls back to database
+- `CheckUsernameAvailability(ctx, username)`: Checks cache, falls back to database with singleflight
 - `UpdateUsername(ctx, userID, username)`: Updates database and invalidates cache
+
+#### Cache Stampede Prevention
+The implementation uses Go's `singleflight` package to prevent cache stampede:
+
+**Without Singleflight (Problem):**
+- 100 concurrent requests for "john_doe" arrive simultaneously
+- All 100 miss the cache (username not cached yet)
+- All 100 hit the database → Database overload
+
+**With Singleflight (Solution):**
+- 100 concurrent requests for "john_doe" arrive simultaneously
+- All 100 miss the cache
+- Singleflight groups them together
+- Only **1 database query** is executed
+- All 100 requests share the same result
+- Cache is populated for future requests
+
+This ensures that even during cache expiration or cold starts, the database remains protected from concurrent request spikes.
 
 ### Repository Layer (`internal/auth/repository/user.go`)
 - `ExistsByUsername(ctx, username)`: Database existence check
@@ -105,6 +126,7 @@ mutation UpdateProfile {
 2. **API Latency**: P95 should be <10ms for cached responses
 3. **Database Load**: Username queries should be <5% of total queries
 4. **Error Rate**: Track unique constraint violations
+5. **Singleflight Effectiveness**: Monitor deduplicated requests (available in logs)
 
 ### Redis Memory Usage
 - Each cache entry: ~50 bytes
