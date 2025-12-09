@@ -107,12 +107,12 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 
 	oauthService := service.NewOAuthService(authService)
 
-	worker := worker.NewLastLoginWorker(redisClient.RawClient(), *authService)
+	worker := worker.NewLastLoginWorker(redisClient.RawClient(), authService)
 	consumerCtx, consumerCancel := context.WithCancel(context.Background())
 	go worker.Start(consumerCtx)
 	defer consumerCancel()
 
-	resolver := resolvers.NewResolver(db.Client, *authService, *oauthService)
+	resolver := resolvers.NewResolver(db.Client, authService, oauthService)
 	auth := directives.NewAuthDirective()
 	rateLimit := directives.NewRateLimitDirective(redisClient)
 	constraint := directives.NewConstraint()
