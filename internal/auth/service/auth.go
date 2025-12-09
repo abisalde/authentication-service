@@ -306,50 +306,43 @@ func (s *AuthService) FindUsers(ctx context.Context, role *model.UserRole, pagin
 	return s.userRepo.FindAllUsers(ctx, role, pagination)
 }
 
-// CheckUsernameAvailability checks if a username is available with caching
 func (s *AuthService) CheckUsernameAvailability(ctx context.Context, username string) (bool, error) {
-	// Check cache first
+
 	cacheKey := fmt.Sprintf("username_exists:%s", username)
 	var exists bool
 	err := s.cache.Get(ctx, cacheKey, &exists)
 	if err == nil {
-		// Cache hit
+
 		return !exists, nil
 	}
 
-	// Cache miss - check database
 	exists, err = s.userRepo.ExistsByUsername(ctx, username)
 	if err != nil {
 		return false, err
 	}
 
-	// Store result in cache with 5 minute TTL
 	_ = s.cache.Set(ctx, cacheKey, exists, 5*time.Minute)
 
 	return !exists, nil
 }
 
-// UpdateUsername updates the user's username and invalidates relevant caches
 func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsername string) error {
-	// Get current user to invalidate old username cache
+
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// Update username in database
 	err = s.userRepo.UpdateUsername(ctx, userID, newUsername)
 	if err != nil {
 		return err
 	}
 
-	// Invalidate old username cache if it existed
 	if user.Username != "" {
 		oldCacheKey := fmt.Sprintf("username_exists:%s", user.Username)
 		_ = s.cache.Delete(ctx, oldCacheKey)
 	}
 
-	// Set new username as taken in cache
 	newCacheKey := fmt.Sprintf("username_exists:%s", newUsername)
 	_ = s.cache.Set(ctx, newCacheKey, true, 5*time.Minute)
 

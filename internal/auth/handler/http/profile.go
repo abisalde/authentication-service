@@ -62,11 +62,8 @@ func (h *ProfileHandler) UpdateUserProfile(ctx context.Context, input model.Upda
 		return nil, errors.AuthenticationRequired
 	}
 
-	// If username is being updated, check availability and update
 	if input.Username != nil && *input.Username != "" {
-		// Check if username already belongs to current user
 		if currentUser.Username != *input.Username {
-			// Check availability
 			available, err := h.authService.CheckUsernameAvailability(ctx, *input.Username)
 			if err != nil {
 				return nil, err
@@ -77,14 +74,12 @@ func (h *ProfileHandler) UpdateUserProfile(ctx context.Context, input model.Upda
 				})
 			}
 
-			// Update username
 			if err := h.authService.UpdateUsername(ctx, currentUser.ID, *input.Username); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	// Get updated user and return
 	updatedUser, err := h.authService.FindUserProfileById(ctx, currentUser.ID)
 	if err != nil {
 		return nil, err
