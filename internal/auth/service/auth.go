@@ -18,6 +18,7 @@ import (
 	"github.com/abisalde/authentication-service/pkg/mail"
 	"github.com/abisalde/authentication-service/pkg/verification"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -44,6 +45,7 @@ type AuthService struct {
 	cfg         *configs.Config
 	cache       CacheService
 	mailService mail.Mailer
+	sfGroup     singleflight.Group // Prevents cache stampede for concurrent requests
 }
 
 func NewAuthService(userRepo repository.UserRepository, cfg *configs.Config, cache CacheService, mailService mail.Mailer) *AuthService {
@@ -307,23 +309,30 @@ func (s *AuthService) FindUsers(ctx context.Context, role *model.UserRole, pagin
 }
 
 func (s *AuthService) CheckUsernameAvailability(ctx context.Context, username string) (bool, error) {
-
 	cacheKey := fmt.Sprintf("username_exists:%s", username)
 	var exists bool
 	err := s.cache.Get(ctx, cacheKey, &exists)
 	if err == nil {
-
 		return !exists, nil
 	}
 
-	exists, err = s.userRepo.ExistsByUsername(ctx, username)
+	result, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		// Check database
+		exists, err := s.userRepo.ExistsByUsername(ctx, username)
+		if err != nil {
+			return false, err
+		}
+
+		_ = s.cache.Set(ctx, cacheKey, exists, 5*time.Minute)
+
+		return !exists, nil
+	})
+
 	if err != nil {
 		return false, err
 	}
 
-	_ = s.cache.Set(ctx, cacheKey, exists, 5*time.Minute)
-
-	return !exists, nil
+	return result.(bool), nil
 }
 
 func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsername string) error {
