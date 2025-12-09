@@ -33,6 +33,8 @@ const (
 	FieldState = "state"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
+	// FieldUsername holds the string denoting the username field in the database.
+	FieldUsername = "username"
 	// FieldPasswordHash holds the string denoting the password_hash field in the database.
 	FieldPasswordHash = "password_hash"
 	// FieldOauthID holds the string denoting the oauth_id field in the database.
@@ -80,6 +82,7 @@ var Columns = []string{
 	FieldCountry,
 	FieldState,
 	FieldEmail,
+	FieldUsername,
 	FieldPasswordHash,
 	FieldOauthID,
 	FieldProvider,
@@ -143,6 +146,8 @@ var (
 	StateValidator func(string) error
 	// EmailValidator is a validator for the "email" field. It is called by the builders before save.
 	EmailValidator func(string) error
+	// UsernameValidator is a validator for the "username" field. It is called by the builders before save.
+	UsernameValidator func(string) error
 	// OauthIDValidator is a validator for the "oauth_id" field. It is called by the builders before save.
 	OauthIDValidator func(string) error
 	// DefaultFirstName holds the default value on creation for the "first_name" field.
@@ -265,6 +270,11 @@ func ByState(opts ...sql.OrderTermOption) OrderOption {
 // ByEmail orders the results by the email field.
 func ByEmail(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmail, opts...).ToFunc()
+}
+
+// ByUsername orders the results by the username field.
+func ByUsername(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUsername, opts...).ToFunc()
 }
 
 // ByPasswordHash orders the results by the password_hash field.

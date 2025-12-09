@@ -5,6 +5,8 @@ type User {
 	id: ID!
 	"User's primary email (must be unique)"
 	email: String!
+	"Unique username (optional, 3-30 chars, alphanumeric, underscore, hyphen)"
+	username: String
 	"Oauth Provider or RegularEmailAndPassword"
 	provider: AuthProvider!
 	firstName: String!
@@ -80,10 +82,19 @@ enum UserRole {
 input UpdateProfileInput {
 	firstName: String! @constraint(minLength: 1, maxLength: 50)
 	lastName: String! @constraint(minLength: 1, maxLength: 50)
+	username: String @constraint(minLength: 3, maxLength: 30, pattern: "^[a-zA-Z0-9_-]+$")
 	address: UserAddressInput
 	phoneNumber: String @constraint(pattern: "^\\+?[0-9\\-\\s]+$")
 	marketingOptIn: Boolean! @default(value: false)
 	termsAcceptedAt: Time
+}
+
+"""
+Response for username availability check
+"""
+type UsernameAvailability {
+	available: Boolean!
+	username: String!
 }
 
 extend type Query {
@@ -98,4 +109,8 @@ extend type Query {
 		"Cursor for pagination"
 		after: ID
 	): UserConnection! @auth(requires: ADMIN)
+	"""
+	Check if a username is available for registration or update
+	"""
+	checkUsernameAvailability(username: String! @constraint(minLength: 3, maxLength: 30, pattern: "^[a-zA-Z0-9_-]+$")): UsernameAvailability!
 }

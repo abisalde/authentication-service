@@ -36,6 +36,8 @@ type User struct {
 	State string `json:"state"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
+	// Username holds the value of the "username" field.
+	Username string `json:"username,omitempty"`
 	// PasswordHash holds the value of the "password_hash" field.
 	PasswordHash string `json:"-"`
 	// OauthID holds the value of the "oauth_id" field.
@@ -94,7 +96,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case user.FieldID:
 			values[i] = new(sql.NullInt64)
-		case user.FieldStreetName, user.FieldCity, user.FieldZipCode, user.FieldCountry, user.FieldState, user.FieldEmail, user.FieldPasswordHash, user.FieldOauthID, user.FieldProvider, user.FieldFirstName, user.FieldLastName, user.FieldPhoneNumber, user.FieldRole:
+		case user.FieldStreetName, user.FieldCity, user.FieldZipCode, user.FieldCountry, user.FieldState, user.FieldEmail, user.FieldUsername, user.FieldPasswordHash, user.FieldOauthID, user.FieldProvider, user.FieldFirstName, user.FieldLastName, user.FieldPhoneNumber, user.FieldRole:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTermsAcceptedAt, user.FieldLastLoginAt:
 			values[i] = new(sql.NullTime)
@@ -175,6 +177,12 @@ func (u *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field email", values[i])
 			} else if value.Valid {
 				u.Email = value.String
+			}
+		case user.FieldUsername:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field username", values[i])
+			} else if value.Valid {
+				u.Username = value.String
 			}
 		case user.FieldPasswordHash:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -320,6 +328,9 @@ func (u *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("email=")
 	builder.WriteString(u.Email)
+	builder.WriteString(", ")
+	builder.WriteString("username=")
+	builder.WriteString(u.Username)
 	builder.WriteString(", ")
 	builder.WriteString("password_hash=<sensitive>")
 	builder.WriteString(", ")

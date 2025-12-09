@@ -16,6 +16,9 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id int64) (*ent.User, error)
 	CreateNewUser(ctx context.Context, input *model.RegisterVerifiedUser) (*ent.User, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	ExistsByUsername(ctx context.Context, username string) (bool, error)
+	GetByUsername(ctx context.Context, username string) (*ent.User, error)
+	UpdateUsername(ctx context.Context, userID int64, username string) error
 	UpdateLoginTime(ctx context.Context, userID int64) error
 	UpdateNewPassword(ctx context.Context, userID int64, passwordHash string) error
 	FindByOAuthID(ctx context.Context, provider, oauthID string) (*ent.User, error)
@@ -55,6 +58,27 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 		Query().
 		Where(user.EmailEQ(email)).
 		Exist(ctx)
+}
+
+func (r *userRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	return r.client.User.
+		Query().
+		Where(user.UsernameEQ(username)).
+		Exist(ctx)
+}
+
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*ent.User, error) {
+	return r.client.User.
+		Query().
+		Where(user.UsernameEQ(username)).
+		Only(ctx)
+}
+
+func (r *userRepository) UpdateUsername(ctx context.Context, userID int64, username string) error {
+	return r.client.User.UpdateOneID(userID).
+		SetUsername(username).
+		SetUpdatedAt(time.Now()).
+		Exec(ctx)
 }
 
 func (r *userRepository) CreateNewUser(ctx context.Context, input *model.RegisterVerifiedUser) (*ent.User, error) {
@@ -168,9 +192,14 @@ func mapEntUserToModelUser(u *ent.User) *model.User {
 	if u == nil {
 		return nil
 	}
+	var username *string
+	if u.Username != "" {
+		username = &u.Username
+	}
 	return &model.User{
 		ID:              u.ID,
 		Email:           u.Email,
+		Username:        username,
 		FirstName:       u.FirstName,
 		LastName:        u.LastName,
 		IsEmailVerified: u.IsEmailVerified,

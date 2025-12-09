@@ -5,6 +5,7 @@ import "time"
 type User struct {
 	ID              int64        `json:"id"`
 	Email           string       `json:"email"`
+	Username        *string      `json:"username"`
 	Provider        AuthProvider `json:"provider"`
 	FirstName       string       `json:"firstName"`
 	LastName        string       `json:"lastName"`
