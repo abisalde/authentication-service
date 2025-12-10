@@ -313,19 +313,29 @@ func (s *AuthService) CheckUsernameAvailability(ctx context.Context, username st
 	var exists bool
 	err := s.cache.Get(ctx, cacheKey, &exists)
 	if err == nil {
+		log.Printf("Cache HIT for username: %s", username)
 		return !exists, nil
 	}
 
-	result, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+	log.Printf("Cache MISS for username: %s, querying database", username)
+	result, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
 		exists, err := s.userRepo.ExistsByUsername(ctx, username)
 		if err != nil {
 			return false, err
 		}
 
-		_ = s.cache.Set(ctx, cacheKey, exists, 5*time.Minute)
+		if cacheErr := s.cache.Set(ctx, cacheKey, exists, 5*time.Minute); cacheErr != nil {
+			log.Printf("Warning: Failed to cache username '%s': %v", username, cacheErr)
+		} else {
+			log.Printf("Cached username '%s' (exists=%v)", username, exists)
+		}
 
 		return !exists, nil
 	})
+
+	if shared {
+		log.Printf("Singleflight: Request for '%s' shared DB query result", username)
+	}
 
 	if err != nil {
 		return false, err
