@@ -28,7 +28,7 @@ func (r *queryResolver) Users(ctx context.Context, role *model.UserRole, first *
 
 // CheckUsernameAvailability is the resolver for the checkUsernameAvailability field.
 func (r *queryResolver) CheckUsernameAvailability(ctx context.Context, username string) (*model.UsernameAvailability, error) {
-	available, err := r.authService.CheckUsernameAvailability(ctx, username)
+	available, err := r.usersHandler.SearchUsernamesAvailability(ctx, username)
 	if err != nil {
 		return nil, err
 	}

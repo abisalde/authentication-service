@@ -24,3 +24,11 @@ func (h *UsersHandler) GetAllUsers(ctx context.Context, role *model.UserRole, fi
 
 	return h.authService.FindUsers(ctx, role, pagination)
 }
+
+func (h *UsersHandler) SearchUsernamesAvailability(ctx context.Context, query string) (bool, error) {
+	if query == "" {
+		return false, nil
+	}
+
+	return h.authService.CheckUsernameAvailability(ctx, query)
+}

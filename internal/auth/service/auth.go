@@ -317,7 +317,6 @@ func (s *AuthService) CheckUsernameAvailability(ctx context.Context, username st
 	}
 
 	result, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
-		// Check database
 		exists, err := s.userRepo.ExistsByUsername(ctx, username)
 		if err != nil {
 			return false, err

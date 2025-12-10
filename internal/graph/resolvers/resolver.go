@@ -19,7 +19,6 @@ type Resolver struct {
 	tokenHandler    *http.TokenHandler
 	oauthHandler    *oauth.OAuthHandler
 	usersHandler    *http.UsersHandler
-	authService     *service.AuthService
 }
 
 func NewResolver(client *ent.Client, authService *service.AuthService, oauthService *service.OAuthService) *Resolver {
@@ -37,6 +36,5 @@ func NewResolver(client *ent.Client, authService *service.AuthService, oauthServ
 		usersHandler:    usersHandler,
 		oauthHandler:    oauthHandler,
 		tokenHandler:    tokenHandler,
-		authService:     authService,
 	}
 }
