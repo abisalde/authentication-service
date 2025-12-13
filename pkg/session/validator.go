@@ -16,6 +16,7 @@ var (
 	ErrTokenBlacklisted = errors.New("token is blacklisted")
 	ErrInvalidToken     = errors.New("invalid token")
 	ErrNotAccessToken   = errors.New("not an access token")
+	ErrNotRefreshToken  = errors.New("not a refresh token")
 	ErrTokenExpired     = errors.New("token expired")
 )
 
@@ -27,23 +28,27 @@ type Claims struct {
 
 // SessionValidator validates JWT tokens for microservices without calling the auth service
 type SessionValidator struct {
-	secretKey      []byte
-	redisClient    *redis.Client
-	blacklistCache sync.Map
-	issuer         string
-	clockSkew      time.Duration
-	redisHealthy   bool
-	healthMux      sync.RWMutex
+	secretKey            []byte
+	redisClient          *redis.Client
+	blacklistCache       sync.Map
+	issuer               string
+	clockSkew            time.Duration
+	accessTokenCacheTTL  time.Duration
+	refreshTokenCacheTTL time.Duration
+	redisHealthy         bool
+	healthMux            sync.RWMutex
 }
 
 // Config holds the configuration for SessionValidator
 type Config struct {
-	JWTSecret     string
-	RedisAddr     string
-	RedisPassword string
-	RedisDB       int
-	Issuer        string
-	ClockSkew     time.Duration
+	JWTSecret            string
+	RedisAddr            string
+	RedisPassword        string
+	RedisDB              int
+	Issuer               string
+	ClockSkew            time.Duration
+	AccessTokenCacheTTL  time.Duration // How long to cache blacklisted access tokens (default: 12 hours)
+	RefreshTokenCacheTTL time.Duration // How long to cache blacklisted refresh tokens (default: 15 days)
 }
 
 // NewSessionValidator creates a new session validator instance
@@ -61,6 +66,12 @@ func NewSessionValidator(cfg Config) (*SessionValidator, error) {
 	if cfg.ClockSkew == 0 {
 		cfg.ClockSkew = 30 * time.Second
 	}
+	if cfg.AccessTokenCacheTTL == 0 {
+		cfg.AccessTokenCacheTTL = 12 * time.Hour
+	}
+	if cfg.RefreshTokenCacheTTL == 0 {
+		cfg.RefreshTokenCacheTTL = 15 * 24 * time.Hour
+	}
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     cfg.RedisAddr,
@@ -76,11 +87,13 @@ func NewSessionValidator(cfg Config) (*SessionValidator, error) {
 	}
 
 	sv := &SessionValidator{
-		secretKey:    []byte(cfg.JWTSecret),
-		redisClient:  redisClient,
-		issuer:       cfg.Issuer,
-		clockSkew:    cfg.ClockSkew,
-		redisHealthy: true,
+		secretKey:            []byte(cfg.JWTSecret),
+		redisClient:          redisClient,
+		issuer:               cfg.Issuer,
+		clockSkew:            cfg.ClockSkew,
+		accessTokenCacheTTL:  cfg.AccessTokenCacheTTL,
+		refreshTokenCacheTTL: cfg.RefreshTokenCacheTTL,
+		redisHealthy:         true,
 	}
 
 	// Start health check goroutine
@@ -174,7 +187,7 @@ func (sv *SessionValidator) ValidateRefreshToken(tokenString string) (*Claims, e
 	}
 
 	if claims.Type != "refresh" {
-		return nil, errors.New("not a refresh token")
+		return nil, ErrNotRefreshToken
 	}
 
 	if claims.Issuer != sv.issuer {
@@ -240,9 +253,9 @@ func (sv *SessionValidator) subscribeToInvalidationsInternal(ctx context.Context
 			sv.blacklistCache.Store(token, true)
 			
 			// Set expiration timer to remove from cache
-			// Access tokens expire in 12 hours
+			// Use the configured TTL (access tokens by default, but could be refresh tokens)
 			go func(tk string) {
-				time.Sleep(12 * time.Hour)
+				time.Sleep(sv.accessTokenCacheTTL)
 				sv.blacklistCache.Delete(tk)
 				log.Printf("Removed expired blacklist entry for token: %s...", tk[:10])
 			}(token)
