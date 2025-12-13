@@ -194,7 +194,12 @@ func (s *AuthService) PublishLoginEvent(ctx context.Context, userID int64) error
 
 func (s *AuthService) BlacklistToken(ctx context.Context, token string, ttl time.Duration) error {
 	key := fmt.Sprintf("blacklist:%s", token)
-	return s.cache.Set(ctx, key, "blacklisted", ttl)
+	if err := s.cache.Set(ctx, key, "blacklisted", ttl); err != nil {
+		return err
+	}
+	
+	// Publish token invalidation event to all microservices via Redis pub/sub
+	return s.cache.RawClient().Publish(ctx, "token_invalidation", token).Err()
 }
 
 func (s *AuthService) IsTokenBlacklisted(ctx context.Context, token string) bool {
