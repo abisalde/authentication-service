@@ -548,13 +548,36 @@ func TestCachePerformance_CacheHit(t *testing.T) {
 
 // Benchmark: Username availability check
 func BenchmarkCheckUsernameAvailability_CacheHit(b *testing.B) {
-	authService, client, cleanup := setupTestAuthService(&testing.T{})
-	defer cleanup()
+	// Create test database using SQLite
+	client := enttest.Open(b, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create test Redis client
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   1,
+	})
+	defer rdb.Close()
+
+	redisCache := database.NewCacheService(rdb)
+	userRepo := repository.NewUserRepository(client)
+	cfg := &configs.Config{}
+	mailService := &mockMailService{}
+	authService := service.NewAuthService(userRepo, cfg, redisCache, mailService)
 
 	ctx := context.Background()
 
+	// Create test user
 	testUsername := "bench_user"
-	createTestUser(&testing.T{}, client, testUsername)
+	_, err := client.User.Create().
+		SetEmail(fmt.Sprintf("%s@example.com", testUsername)).
+		SetFirstName("Test").
+		SetLastName("User").
+		SetUsername(testUsername).
+		Save(ctx)
+	if err != nil {
+		b.Fatalf("Failed to create test user: %v", err)
+	}
 
 	// Warm up cache
 	_, _ = authService.CheckUsernameAvailability(ctx, testUsername)
@@ -566,8 +589,22 @@ func BenchmarkCheckUsernameAvailability_CacheHit(b *testing.B) {
 }
 
 func BenchmarkCheckUsernameAvailability_CacheMiss(b *testing.B) {
-	authService, client, cleanup := setupTestAuthService(&testing.T{})
-	defer cleanup()
+	// Create test database using SQLite
+	client := enttest.Open(b, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create test Redis client
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   1,
+	})
+	defer rdb.Close()
+
+	redisCache := database.NewCacheService(rdb)
+	userRepo := repository.NewUserRepository(client)
+	cfg := &configs.Config{}
+	mailService := &mockMailService{}
+	authService := service.NewAuthService(userRepo, cfg, redisCache, mailService)
 
 	ctx := context.Background()
 
@@ -575,7 +612,15 @@ func BenchmarkCheckUsernameAvailability_CacheMiss(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		testUsername := fmt.Sprintf("bench_user_%d", i)
-		createTestUser(&testing.T{}, client, testUsername)
+		_, err := client.User.Create().
+			SetEmail(fmt.Sprintf("%s@example.com", testUsername)).
+			SetFirstName("Test").
+			SetLastName("User").
+			SetUsername(testUsername).
+			Save(ctx)
+		if err != nil {
+			b.Fatalf("Failed to create test user: %v", err)
+		}
 		cacheKey := fmt.Sprintf("username_exists:%s", testUsername)
 		_ = authService.GetCache().Delete(ctx, cacheKey)
 		b.StartTimer()
