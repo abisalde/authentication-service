@@ -91,8 +91,9 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Profile func(childComplexity int) int
-		Users   func(childComplexity int, role *model.UserRole, first *int32, after *string) int
+		CheckUsernameAvailability func(childComplexity int, username string) int
+		Profile                   func(childComplexity int) int
+		Users                     func(childComplexity int, role *model.UserRole, first *int32, after *string) int
 	}
 
 	RefreshTokenResponse struct {
@@ -121,6 +122,7 @@ type ComplexityRoot struct {
 		Role            func(childComplexity int) int
 		TermsAcceptedAt func(childComplexity int) int
 		UpdatedAt       func(childComplexity int) int
+		Username        func(childComplexity int) int
 	}
 
 	UserAddress struct {
@@ -139,6 +141,11 @@ type ComplexityRoot struct {
 	UserEdge struct {
 		Cursor func(childComplexity int) int
 		Node   func(childComplexity int) int
+	}
+
+	UsernameAvailability struct {
+		Available func(childComplexity int) int
+		Username  func(childComplexity int) int
 	}
 }
 
@@ -159,6 +166,7 @@ type PublicUserResolver interface {
 type QueryResolver interface {
 	Profile(ctx context.Context) (*model.User, error)
 	Users(ctx context.Context, role *model.UserRole, first *int32, after *string) (*model.UserConnection, error)
+	CheckUsernameAvailability(ctx context.Context, username string) (*model.UsernameAvailability, error)
 }
 
 type executableSchema struct {
@@ -374,6 +382,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PublicUser.Name(childComplexity), true
 
+	case "Query.checkUsernameAvailability":
+		if e.complexity.Query.CheckUsernameAvailability == nil {
+			break
+		}
+
+		args, err := ec.field_Query_checkUsernameAvailability_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.CheckUsernameAvailability(childComplexity, args["username"].(string)), true
+
 	case "Query.profile":
 		if e.complexity.Query.Profile == nil {
 			break
@@ -526,6 +546,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.User.UpdatedAt(childComplexity), true
 
+	case "User.username":
+		if e.complexity.User.Username == nil {
+			break
+		}
+
+		return e.complexity.User.Username(childComplexity), true
+
 	case "UserAddress.city":
 		if e.complexity.UserAddress.City == nil {
 			break
@@ -588,6 +615,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.UserEdge.Node(childComplexity), true
+
+	case "UsernameAvailability.available":
+		if e.complexity.UsernameAvailability.Available == nil {
+			break
+		}
+
+		return e.complexity.UsernameAvailability.Available(childComplexity), true
+
+	case "UsernameAvailability.username":
+		if e.complexity.UsernameAvailability.Username == nil {
+			break
+		}
+
+		return e.complexity.UsernameAvailability.Username(childComplexity), true
 
 	}
 	return 0, false
@@ -1223,6 +1264,66 @@ func (ec *executionContext) field_Query___type_argsName(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_checkUsernameAvailability_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_checkUsernameAvailability_argsUsername(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["username"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_checkUsernameAvailability_argsUsername(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("username"))
+	directive0 := func(ctx context.Context) (any, error) {
+		tmp, ok := rawArgs["username"]
+		if !ok {
+			var zeroVal string
+			return zeroVal, nil
+		}
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	directive1 := func(ctx context.Context) (any, error) {
+		minLength, err := ec.unmarshalOInt2ᚖint32(ctx, 3)
+		if err != nil {
+			var zeroVal string
+			return zeroVal, err
+		}
+		maxLength, err := ec.unmarshalOInt2ᚖint32(ctx, 30)
+		if err != nil {
+			var zeroVal string
+			return zeroVal, err
+		}
+		pattern, err := ec.unmarshalOString2ᚖstring(ctx, "^[a-zA-Z0-9_-]+$")
+		if err != nil {
+			var zeroVal string
+			return zeroVal, err
+		}
+		if ec.directives.Constraint == nil {
+			var zeroVal string
+			return zeroVal, errors.New("directive constraint is not implemented")
+		}
+		return ec.directives.Constraint(ctx, rawArgs, directive0, nil, minLength, maxLength, pattern, nil, nil)
+	}
+
+	tmp, err := directive1(ctx)
+	if err != nil {
+		var zeroVal string
+		return zeroVal, graphql.ErrorOnPath(ctx, err)
+	}
+	if data, ok := tmp.(string); ok {
+		return data, nil
+	} else {
+		var zeroVal string
+		return zeroVal, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from directive, should be string`, tmp))
+	}
+}
+
 func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1590,7 +1691,7 @@ func (ec *executionContext) _Mutation_register(ctx context.Context, field graphq
 		}
 
 		directive1 := func(ctx context.Context) (any, error) {
-			operation, err := ec.unmarshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx, "LOGIN")
+			operation, err := ec.unmarshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx, "REGISTER")
 			if err != nil {
 				var zeroVal *model.RegisterResponse
 				return zeroVal, err
@@ -1687,7 +1788,7 @@ func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.C
 		}
 
 		directive1 := func(ctx context.Context) (any, error) {
-			operation, err := ec.unmarshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx, "REGISTER")
+			operation, err := ec.unmarshalNRateLimitMethods2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐRateLimitMethods(ctx, "LOGIN")
 			if err != nil {
 				var zeroVal *model.LoginResponse
 				return zeroVal, err
@@ -1982,6 +2083,8 @@ func (ec *executionContext) fieldContext_Mutation_updateProfile(ctx context.Cont
 				return ec.fieldContext_User_id(ctx, field)
 			case "email":
 				return ec.fieldContext_User_email(ctx, field)
+			case "username":
+				return ec.fieldContext_User_username(ctx, field)
 			case "provider":
 				return ec.fieldContext_User_provider(ctx, field)
 			case "firstName":
@@ -2825,6 +2928,8 @@ func (ec *executionContext) fieldContext_Query_profile(_ context.Context, field 
 				return ec.fieldContext_User_id(ctx, field)
 			case "email":
 				return ec.fieldContext_User_email(ctx, field)
+			case "username":
+				return ec.fieldContext_User_username(ctx, field)
 			case "provider":
 				return ec.fieldContext_User_provider(ctx, field)
 			case "firstName":
@@ -2937,6 +3042,64 @@ func (ec *executionContext) fieldContext_Query_users(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_users_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_checkUsernameAvailability(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_checkUsernameAvailability(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().CheckUsernameAvailability(rctx, fc.Args["username"].(string))
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.UsernameAvailability)
+	fc.Result = res
+	return ec.marshalNUsernameAvailability2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐUsernameAvailability(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_checkUsernameAvailability(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "available":
+				return ec.fieldContext_UsernameAvailability_available(ctx, field)
+			case "username":
+				return ec.fieldContext_UsernameAvailability_username(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UsernameAvailability", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_checkUsernameAvailability_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3307,6 +3470,44 @@ func (ec *executionContext) _User_email(ctx context.Context, field graphql.Colle
 }
 
 func (ec *executionContext) fieldContext_User_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "User",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _User_username(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_User_username(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Username, nil
+	})
+
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_User_username(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
@@ -4180,6 +4381,8 @@ func (ec *executionContext) fieldContext_UserEdge_node(_ context.Context, field 
 				return ec.fieldContext_User_id(ctx, field)
 			case "email":
 				return ec.fieldContext_User_email(ctx, field)
+			case "username":
+				return ec.fieldContext_User_username(ctx, field)
 			case "provider":
 				return ec.fieldContext_User_provider(ctx, field)
 			case "firstName":
@@ -4249,6 +4452,88 @@ func (ec *executionContext) fieldContext_UserEdge_cursor(_ context.Context, fiel
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UsernameAvailability_available(ctx context.Context, field graphql.CollectedField, obj *model.UsernameAvailability) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UsernameAvailability_available(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Available, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UsernameAvailability_available(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UsernameAvailability",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UsernameAvailability_username(ctx context.Context, field graphql.CollectedField, obj *model.UsernameAvailability) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UsernameAvailability_username(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Username, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UsernameAvailability_username(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UsernameAvailability",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -6584,7 +6869,7 @@ func (ec *executionContext) unmarshalInputUpdateProfileInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"firstName", "lastName", "address", "phoneNumber", "marketingOptIn", "termsAcceptedAt"}
+	fieldsInOrder := [...]string{"firstName", "lastName", "username", "address", "phoneNumber", "marketingOptIn", "termsAcceptedAt"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6653,6 +6938,45 @@ func (ec *executionContext) unmarshalInputUpdateProfileInput(ctx context.Context
 				it.LastName = data
 			} else {
 				err := fmt.Errorf(`unexpected type %T from directive, should be string`, tmp)
+				return it, graphql.ErrorOnPath(ctx, err)
+			}
+		case "username":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("username"))
+			directive0 := func(ctx context.Context) (any, error) { return ec.unmarshalOString2ᚖstring(ctx, v) }
+
+			directive1 := func(ctx context.Context) (any, error) {
+				minLength, err := ec.unmarshalOInt2ᚖint32(ctx, 3)
+				if err != nil {
+					var zeroVal *string
+					return zeroVal, err
+				}
+				maxLength, err := ec.unmarshalOInt2ᚖint32(ctx, 30)
+				if err != nil {
+					var zeroVal *string
+					return zeroVal, err
+				}
+				pattern, err := ec.unmarshalOString2ᚖstring(ctx, "^[a-zA-Z0-9_-]+$")
+				if err != nil {
+					var zeroVal *string
+					return zeroVal, err
+				}
+				if ec.directives.Constraint == nil {
+					var zeroVal *string
+					return zeroVal, errors.New("directive constraint is not implemented")
+				}
+				return ec.directives.Constraint(ctx, obj, directive0, nil, minLength, maxLength, pattern, nil, nil)
+			}
+
+			tmp, err := directive1(ctx)
+			if err != nil {
+				return it, graphql.ErrorOnPath(ctx, err)
+			}
+			if data, ok := tmp.(*string); ok {
+				it.Username = data
+			} else if tmp == nil {
+				it.Username = nil
+			} else {
+				err := fmt.Errorf(`unexpected type %T from directive, should be *string`, tmp)
 				return it, graphql.ErrorOnPath(ctx, err)
 			}
 		case "address":
@@ -7292,6 +7616,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "checkUsernameAvailability":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_checkUsernameAvailability(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -7429,6 +7775,8 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "username":
+			out.Values[i] = ec._User_username(ctx, field, obj)
 		case "provider":
 			out.Values[i] = ec._User_provider(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -7611,6 +7959,50 @@ func (ec *executionContext) _UserEdge(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "cursor":
 			out.Values[i] = ec._UserEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var usernameAvailabilityImplementors = []string{"UsernameAvailability"}
+
+func (ec *executionContext) _UsernameAvailability(ctx context.Context, sel ast.SelectionSet, obj *model.UsernameAvailability) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, usernameAvailabilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UsernameAvailability")
+		case "available":
+			out.Values[i] = ec._UsernameAvailability_available(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "username":
+			out.Values[i] = ec._UsernameAvailability_username(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8318,6 +8710,20 @@ func (ec *executionContext) unmarshalNUserRole2githubᚗcomᚋabisaldeᚋauthent
 
 func (ec *executionContext) marshalNUserRole2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐUserRole(ctx context.Context, sel ast.SelectionSet, v model.UserRole) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) marshalNUsernameAvailability2githubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐUsernameAvailability(ctx context.Context, sel ast.SelectionSet, v model.UsernameAvailability) graphql.Marshaler {
+	return ec._UsernameAvailability(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUsernameAvailability2ᚖgithubᚗcomᚋabisaldeᚋauthenticationᚑserviceᚋinternalᚋgraphᚋmodelᚐUsernameAvailability(ctx context.Context, sel ast.SelectionSet, v *model.UsernameAvailability) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UsernameAvailability(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

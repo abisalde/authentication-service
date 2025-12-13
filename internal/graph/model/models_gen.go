@@ -66,6 +66,7 @@ type ResendVerificationCode struct {
 type UpdateProfileInput struct {
 	FirstName       string            `json:"firstName"`
 	LastName        string            `json:"lastName"`
+	Username        *string           `json:"username,omitempty"`
 	Address         *UserAddressInput `json:"address,omitempty"`
 	PhoneNumber     *string           `json:"phoneNumber,omitempty"`
 	MarketingOptIn  bool              `json:"marketingOptIn"`
@@ -102,6 +103,12 @@ type UserConnection struct {
 type UserEdge struct {
 	Node   *User  `json:"node"`
 	Cursor string `json:"cursor"`
+}
+
+// Response for username availability check
+type UsernameAvailability struct {
+	Available bool   `json:"available"`
+	Username  string `json:"username"`
 }
 
 type AuthProvider string

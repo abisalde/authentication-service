@@ -12,10 +12,10 @@ import (
 
 type LastLoginWorker struct {
 	redisClient *redis.Client
-	authService service.AuthService
+	authService *service.AuthService
 }
 
-func NewLastLoginWorker(redisClient *redis.Client, authService service.AuthService) *LastLoginWorker {
+func NewLastLoginWorker(redisClient *redis.Client, authService *service.AuthService) *LastLoginWorker {
 	return &LastLoginWorker{
 		redisClient: redisClient,
 		authService: authService,

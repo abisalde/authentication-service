@@ -18,6 +18,7 @@ import (
 	"github.com/abisalde/authentication-service/pkg/mail"
 	"github.com/abisalde/authentication-service/pkg/verification"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -44,6 +45,7 @@ type AuthService struct {
 	cfg         *configs.Config
 	cache       CacheService
 	mailService mail.Mailer
+	sfGroup     singleflight.Group // Prevents cache stampede for concurrent requests
 }
 
 func NewAuthService(userRepo repository.UserRepository, cfg *configs.Config, cache CacheService, mailService mail.Mailer) *AuthService {
@@ -304,4 +306,63 @@ func (s *AuthService) CheckIfRefreshTokenMatchClaims(ctx context.Context, uid in
 
 func (s *AuthService) FindUsers(ctx context.Context, role *model.UserRole, pagination *model.PaginationInput) (*model.UserConnection, error) {
 	return s.userRepo.FindAllUsers(ctx, role, pagination)
+}
+
+func (s *AuthService) CheckUsernameAvailability(ctx context.Context, username string) (bool, error) {
+	cacheKey := fmt.Sprintf("username_exists:%s", username)
+	var exists bool
+	err := s.cache.Get(ctx, cacheKey, &exists)
+	if err == nil {
+		log.Printf("Cache HIT for username: %s", username)
+		return !exists, nil
+	}
+
+	log.Printf("Cache MISS for username: %s, querying database", username)
+	result, err, shared := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		exists, err := s.userRepo.ExistsByUsername(ctx, username)
+		if err != nil {
+			return false, err
+		}
+
+		if cacheErr := s.cache.Set(ctx, cacheKey, exists, 5*time.Minute); cacheErr != nil {
+			log.Printf("Warning: Failed to cache username '%s': %v", username, cacheErr)
+		} else {
+			log.Printf("Cached username '%s' (exists=%v)", username, exists)
+		}
+
+		return !exists, nil
+	})
+
+	if shared {
+		log.Printf("Singleflight: Request for '%s' shared DB query result", username)
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return result.(bool), nil
+}
+
+func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsername string) error {
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	err = s.userRepo.UpdateUsername(ctx, userID, newUsername)
+	if err != nil {
+		return err
+	}
+
+	if user.Username != "" {
+		oldCacheKey := fmt.Sprintf("username_exists:%s", user.Username)
+		_ = s.cache.Delete(ctx, oldCacheKey)
+	}
+
+	newCacheKey := fmt.Sprintf("username_exists:%s", newUsername)
+	_ = s.cache.Set(ctx, newCacheKey, true, 5*time.Minute)
+
+	return nil
 }

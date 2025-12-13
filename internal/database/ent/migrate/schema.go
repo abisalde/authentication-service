@@ -20,6 +20,7 @@ var (
 		{Name: "country", Type: field.TypeString, Size: 160, Default: ""},
 		{Name: "state", Type: field.TypeString, Size: 100, Default: ""},
 		{Name: "email", Type: field.TypeString, Unique: true},
+		{Name: "username", Type: field.TypeString, Unique: true, Nullable: true, Size: 30},
 		{Name: "password_hash", Type: field.TypeString, Nullable: true},
 		{Name: "oauth_id", Type: field.TypeString, Nullable: true, Size: 255},
 		{Name: "provider", Type: field.TypeEnum, Enums: []string{"GOOGLE", "FACEBOOK", "EMAIL"}, Default: "EMAIL"},
@@ -41,7 +42,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_user_addresses_address",
-				Columns:    []*schema.Column{UsersColumns[21]},
+				Columns:    []*schema.Column{UsersColumns[22]},
 				RefColumns: []*schema.Column{UserAddressesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -53,19 +54,24 @@ var (
 				Columns: []*schema.Column{UsersColumns[9]},
 			},
 			{
+				Name:    "user_username",
+				Unique:  false,
+				Columns: []*schema.Column{UsersColumns[10]},
+			},
+			{
 				Name:    "user_oauth_id_provider",
 				Unique:  true,
-				Columns: []*schema.Column{UsersColumns[11], UsersColumns[12]},
+				Columns: []*schema.Column{UsersColumns[12], UsersColumns[13]},
 			},
 			{
 				Name:    "user_last_login_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsersColumns[20]},
+				Columns: []*schema.Column{UsersColumns[21]},
 			},
 			{
 				Name:    "user_is_email_verified",
 				Unique:  false,
-				Columns: []*schema.Column{UsersColumns[17]},
+				Columns: []*schema.Column{UsersColumns[18]},
 			},
 		},
 	}

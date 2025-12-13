@@ -90,6 +90,12 @@ func (User) Fields() []ent.Field {
 			Unique().
 			Match(regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)),
 
+		field.String("username").
+			Optional().
+			Unique().
+			MaxLen(30).
+			Match(regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)),
+
 		field.String("password_hash").
 			Sensitive().
 			Optional(),
@@ -152,6 +158,7 @@ func (User) Edges() []ent.Edge {
 func (User) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("email"),
+		index.Fields("username"),
 		index.Fields("oauth_id", "provider").Unique(),
 		index.Fields("last_login_at"),
 		index.Fields("is_email_verified"),
