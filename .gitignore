@@ -54,6 +54,8 @@ Thumbs.db
 /bin/
 /bookstore
 /bookstore.exe
+/example-microservice
+/examples/**/example-microservice
 
 
 # IDE specific files
