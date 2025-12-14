@@ -7,6 +7,7 @@ This directory contains comprehensive integration tests for the username availab
 These tests validate the following edge cases and scenarios:
 
 1. **Username Validation Edge Cases**
+
    - Single character usernames (like Twitter "x")
    - Minimum length (1 character)
    - Maximum length (30 characters)
@@ -16,15 +17,18 @@ These tests validate the following edge cases and scenarios:
    - Empty string handling
 
 2. **Cache Stampede Prevention**
+
    - 100+ concurrent requests for the same username
    - Singleflight deduplication verification
    - Performance under load
 
 3. **Redis Connection Failures**
+
    - Fallback to database when Redis is unavailable
    - Graceful degradation
 
 4. **Username Updates with Cache Invalidation**
+
    - Old username cache key removal
    - New username cache key creation
    - Database update verification
@@ -40,6 +44,7 @@ These tests validate the following edge cases and scenarios:
 The tests use SQLite for the database (no setup required) and optionally Redis for caching tests.
 
 **Optional: Start Redis for full test coverage**
+
 ```bash
 docker run -d -p 6379:6379 redis:latest
 ```
@@ -101,6 +106,7 @@ All tests are passing as of the latest commit:
 ## Test Coverage
 
 These tests cover:
+
 - ✅ Username validation (length from 1-30 chars, format, special characters)
 - ✅ Single character usernames (like Twitter)
 - ✅ International character support (European, African, Asian names)
@@ -117,6 +123,7 @@ These tests cover:
 ## Architecture
 
 The tests use:
+
 - **SQLite** for in-memory database testing (fast, no setup)
 - **Redis** for cache testing (optional, graceful fallback)
 - **Ent** ORM for database operations
@@ -126,17 +133,20 @@ The tests use:
 ## Performance Expectations
 
 With Redis available:
+
 - Cache hit: ~1ms response time
 - Cache miss: ~5-10ms response time
 - 100 concurrent requests: <5 seconds total
 
 Without Redis (fallback):
+
 - All requests: ~5-10ms response time
 - Graceful degradation with no failures
 
 ## Continuous Integration
 
 These tests are designed to run in CI environments with or without Redis:
+
 - Tests pass without Redis (validates fallback behavior)
 - Tests pass with Redis (validates full caching behavior)
 - No external dependencies required for basic test execution
@@ -144,6 +154,7 @@ These tests are designed to run in CI environments with or without Redis:
 ## Future Enhancements
 
 Potential additional tests to consider:
+
 - Rate limiting tests
 - Reserved username validation
 - Username history tracking
