@@ -366,3 +366,8 @@ func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsern
 
 	return nil
 }
+
+// GetCache returns the cache service for testing purposes
+func (s *AuthService) GetCache() CacheService {
+	return s.cache
+}

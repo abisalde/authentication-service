@@ -7,6 +7,7 @@ require (
 	github.com/99designs/gqlgen v0.17.76
 	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/joho/godotenv v1.5.1
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/resend/resend-go/v2 v2.21.0
 	github.com/vektah/gqlparser/v2 v2.5.30
 	gopkg.in/yaml.v3 v3.0.1

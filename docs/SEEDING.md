@@ -88,9 +88,6 @@ If you need to re-seed the database:
 # Option 1: Use the reset cluster script
 ./scripts/reset-cluster.sh
 
-# Option 2: Manually clear the users table
-docker exec -it mysql-dev mysql -uappuser -p$(cat deployments/.secrets/dev_db_password) authservicelocal -e "DELETE FROM users;"
-```
 
 ### Troubleshooting
 
@@ -107,3 +104,4 @@ docker exec -it mysql-dev mysql -uappuser -p$(cat deployments/.secrets/dev_db_pa
 
 - Ensure the bcrypt package is properly installed
 - Check Go version compatibility (requires Go 1.24.3+)
+```

@@ -22,7 +22,7 @@ This feature allows users to set and check the availability of usernames during 
 3. **API Layer (GraphQL)**
    - Query: `checkUsernameAvailability(username: String!): UsernameAvailability!`
    - Mutation: `updateProfile(input: UpdateProfileInput!)` - supports username updates
-   - Username validation: 3-30 characters, alphanumeric with underscore and hyphen
+   - Username validation: 1-30 characters, supports Unicode letters, numbers, underscore, hyphen, and apostrophe
 
 ## Performance Characteristics
 
@@ -114,10 +114,11 @@ This ensures that even during cache expiration or cold starts, the database rema
 - `UpdateUsername(ctx, userID, username)`: Update user's username
 
 ### Validation Rules
-- **Length**: 3-30 characters
-- **Format**: Alphanumeric, underscore, and hyphen only
-- **Pattern**: `^[a-zA-Z0-9_-]+$`
+- **Length**: 1-30 characters (supports single-character usernames like Twitter)
+- **Format**: Unicode letters, numbers, underscore, hyphen, and apostrophe
+- **Pattern**: `^[\p{L}\p{N}_'-]+$`
 - **Uniqueness**: Enforced at database level
+- **International Support**: Supports European names (Ødegaard, Ölaf), Irish names (O'Brien), African names (N'Golo), and other international characters
 
 ## Monitoring & Metrics
 
