@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
@@ -78,8 +80,13 @@ func createTestUser(t *testing.T, client *ent.Client, username string) *ent.User
 	t.Helper()
 
 	ctx := context.Background()
+	// Generate a safe email address using a hash of the username
+	// to avoid issues with special characters in the email local part
+	hash := sha256.Sum256([]byte(username))
+	emailPrefix := hex.EncodeToString(hash[:8])
+	
 	user, err := client.User.Create().
-		SetEmail(fmt.Sprintf("%s@example.com", username)).
+		SetEmail(fmt.Sprintf("user_%s@example.com", emailPrefix)).
 		SetFirstName("Test").
 		SetLastName("User").
 		SetUsername(username).
@@ -93,12 +100,26 @@ func createTestUser(t *testing.T, client *ent.Client, username string) *ent.User
 }
 
 // Test: Username validation edge cases
+func TestUsernameValidation_SingleCharacter(t *testing.T) {
+	_, client, cleanup := setupTestAuthService(t)
+	defer cleanup()
+
+	// Test single character username (like Twitter)
+	singleCharUsername := "x"
+	user := createTestUser(t, client, singleCharUsername)
+
+	// Verify the username was saved correctly
+	if user.Username != singleCharUsername {
+		t.Errorf("Expected username %s, got %s", singleCharUsername, user.Username)
+	}
+}
+
 func TestUsernameValidation_MinLength(t *testing.T) {
 	_, client, cleanup := setupTestAuthService(t)
 	defer cleanup()
 
-	// Test minimum valid length (3 characters)
-	minUsername := "abc"
+	// Test minimum valid length (1 character)
+	minUsername := "a"
 	user := createTestUser(t, client, minUsername)
 
 	// Verify the username was saved correctly
@@ -139,16 +160,24 @@ func TestUsernameValidation_SpecialCharacters(t *testing.T) {
 		{"Valid underscore", "user_name", false},
 		{"Valid hyphen", "user-name", false},
 		{"Valid mixed", "user_123-test", false},
+		{"Valid apostrophe - Irish name", "O'Brien", false},
+		{"Valid Norwegian character", "Ødegaard", false},
+		{"Valid German umlaut", "Ölaf", false},
+		{"Valid mixed European", "Müller-Østergård", false},
+		{"Valid apostrophe at end", "Anders'", false},
 		{"Invalid space", "user name", true},
 		{"Invalid at", "user@name", true},
 		{"Invalid dot", "user.name", true},
 		{"Invalid special", "user$name", true},
+		{"Invalid hash", "user#name", true},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Generate unique email for each test case
+			email := fmt.Sprintf("test_user_%d@example.com", i)
 			_, err := client.User.Create().
-				SetEmail(fmt.Sprintf("%s@example.com", tt.username)).
+				SetEmail(email).
 				SetFirstName("Test").
 				SetLastName("User").
 				SetUsername(tt.username).
@@ -183,6 +212,54 @@ func TestUsernameValidation_EmptyString(t *testing.T) {
 
 	if user.Username != "" {
 		t.Errorf("Expected empty username, got %s", user.Username)
+	}
+}
+
+func TestUsernameValidation_InternationalCharacters(t *testing.T) {
+	_, client, cleanup := setupTestAuthService(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		username string
+		description string
+	}{
+		{"Norwegian name", "Ødegaard", "Norwegian player name with Ø"},
+		{"Irish name", "O'Brien", "Irish name with apostrophe"},
+		{"German name", "Ölaf", "German name with umlaut"},
+		{"French name", "François", "French name with ç"},
+		{"Spanish name", "José", "Spanish name with é"},
+		{"African name", "N'Golo", "African name with apostrophe"},
+		{"Mixed European", "Müller-Østergård", "Mixed with hyphen and special chars"},
+		{"Single char", "Ø", "Single Unicode character"},
+		{"Turkish name", "Şahin", "Turkish name with ş"},
+		{"Polish name", "Łukasz", "Polish name with ł"},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Generate unique email using counter to avoid special char issues
+			email := fmt.Sprintf("intl_user_%d@example.com", i)
+			user, err := client.User.Create().
+				SetEmail(email).
+				SetFirstName("Test").
+				SetLastName("User").
+				SetUsername(tt.username).
+				Save(ctx)
+
+			if err != nil {
+				t.Errorf("Failed to create user with %s (%s): %v", tt.description, tt.username, err)
+				return
+			}
+
+			if user.Username != tt.username {
+				t.Errorf("Expected username %s, got %s", tt.username, user.Username)
+			}
+
+			t.Logf("✓ Successfully validated %s: %s", tt.description, tt.username)
+		})
 	}
 }
 

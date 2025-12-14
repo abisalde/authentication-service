@@ -93,8 +93,9 @@ func (User) Fields() []ent.Field {
 		field.String("username").
 			Optional().
 			Unique().
+			MinLen(1).
 			MaxLen(30).
-			Match(regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)),
+			Match(regexp.MustCompile(`^[\p{L}\p{N}_'-]+$`)),
 
 		field.String("password_hash").
 			Sensitive().

@@ -18,15 +18,18 @@ internal/auth/service/tests/username_integration_test.go
 **Purpose:** Validate that username constraints are properly enforced at the database level.
 
 **Tests:**
-- `TestUsernameValidation_MinLength` - Validates minimum length of 3 characters
+- `TestUsernameValidation_SingleCharacter` - Validates single character usernames (like Twitter)
+- `TestUsernameValidation_MinLength` - Validates minimum length of 1 character
 - `TestUsernameValidation_MaxLength` - Validates maximum length of 30 characters
-- `TestUsernameValidation_SpecialCharacters` - Tests allowed characters (alphanumeric, underscore, hyphen)
+- `TestUsernameValidation_SpecialCharacters` - Tests allowed characters (Unicode letters, numbers, underscore, hyphen, apostrophe)
+- `TestUsernameValidation_InternationalCharacters` - Tests European and African names with special characters
 - `TestUsernameValidation_EmptyString` - Ensures optional username field works correctly
 
 **Key Validations:**
-- ✓ Username must be 3-30 characters
-- ✓ Only alphanumeric, underscore (_), and hyphen (-) allowed
-- ✓ Invalid characters (space, @, ., $, etc.) are rejected
+- ✓ Username must be 1-30 characters (supports single character like "x")
+- ✓ Unicode letters (\p{L}), numbers (\p{N}), underscore (_), hyphen (-), and apostrophe (') allowed
+- ✓ Supports international names: Ødegaard, O'Brien, Ölaf, François, José, N'Golo, etc.
+- ✓ Invalid characters (space, @, ., $, #, etc.) are rejected
 - ✓ Empty username is allowed (field is optional)
 
 ### 2. Cache Stampede Prevention ✅
@@ -295,9 +298,14 @@ These tests are designed for CI environments:
 
 | Edge Case | Test | Status |
 |-----------|------|--------|
-| Min username length (3 chars) | TestUsernameValidation_MinLength | ✅ |
+| Single character username | TestUsernameValidation_SingleCharacter | ✅ |
+| Min username length (1 char) | TestUsernameValidation_MinLength | ✅ |
 | Max username length (30 chars) | TestUsernameValidation_MaxLength | ✅ |
 | Special characters | TestUsernameValidation_SpecialCharacters | ✅ |
+| International characters (Unicode) | TestUsernameValidation_InternationalCharacters | ✅ |
+| European names (Ødegaard, Ölaf) | TestUsernameValidation_InternationalCharacters | ✅ |
+| Irish names (O'Brien) | TestUsernameValidation_SpecialCharacters | ✅ |
+| African names (N'Golo) | TestUsernameValidation_InternationalCharacters | ✅ |
 | Empty string | TestUsernameValidation_EmptyString | ✅ |
 | 100+ concurrent requests | TestCacheStampede_ConcurrentRequests | ✅ |
 | Singleflight deduplication | TestSingleflight_Deduplication | ✅ |

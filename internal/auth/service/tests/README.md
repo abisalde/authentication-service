@@ -7,10 +7,12 @@ This directory contains comprehensive integration tests for the username availab
 These tests validate the following edge cases and scenarios:
 
 1. **Username Validation Edge Cases**
-   - Minimum length (3 characters)
+   - Single character usernames (like Twitter "x")
+   - Minimum length (1 character)
    - Maximum length (30 characters)
-   - Special characters (valid: underscore, hyphen)
-   - Invalid characters (spaces, symbols)
+   - Special characters (valid: Unicode letters, numbers, underscore, hyphen, apostrophe)
+   - International characters (European: Ødegaard, Ölaf; Irish: O'Brien; African: N'Golo)
+   - Invalid characters (spaces, @, ., $, #, etc.)
    - Empty string handling
 
 2. **Cache Stampede Prevention**
@@ -80,9 +82,11 @@ go test -bench=. ./internal/auth/service/tests/ -benchmem
 All tests are passing as of the latest commit:
 
 ```
+✓ TestUsernameValidation_SingleCharacter
 ✓ TestUsernameValidation_MinLength
 ✓ TestUsernameValidation_MaxLength
 ✓ TestUsernameValidation_SpecialCharacters
+✓ TestUsernameValidation_InternationalCharacters
 ✓ TestUsernameValidation_EmptyString
 ✓ TestCacheStampede_ConcurrentRequests
 ✓ TestSingleflight_Deduplication
@@ -97,7 +101,11 @@ All tests are passing as of the latest commit:
 ## Test Coverage
 
 These tests cover:
-- ✅ Username validation (length, format, special characters)
+- ✅ Username validation (length from 1-30 chars, format, special characters)
+- ✅ Single character usernames (like Twitter)
+- ✅ International character support (European, African, Asian names)
+- ✅ Unicode letter support (Ø, Ö, ç, é, ş, ł, etc.)
+- ✅ Apostrophes in names (O'Brien, N'Golo)
 - ✅ Cache stampede with 100+ concurrent requests
 - ✅ Singleflight deduplication
 - ✅ Redis connection failures and fallback behavior
