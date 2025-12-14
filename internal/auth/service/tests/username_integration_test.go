@@ -2,8 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
@@ -26,6 +24,9 @@ type mockMailService struct{}
 func (m *mockMailService) SendHTMLEmail(ctx context.Context, recipientEmail, senderEmail, subject, htmlBody string, overrideSenderEmail ...string) error {
 	return nil
 }
+
+// emailCounter for generating unique test emails
+var emailCounter int64
 
 // setupTestEnvironment creates a test database and Redis client
 func setupTestEnvironment(t *testing.T) (*ent.Client, *database.RedisCache, func()) {
@@ -80,13 +81,11 @@ func createTestUser(t *testing.T, client *ent.Client, username string) *ent.User
 	t.Helper()
 
 	ctx := context.Background()
-	// Generate a safe email address using a hash of the username
-	// to avoid issues with special characters in the email local part
-	hash := sha256.Sum256([]byte(username))
-	emailPrefix := hex.EncodeToString(hash[:8])
+	// Generate unique email to avoid conflicts
+	emailCounter++
 	
 	user, err := client.User.Create().
-		SetEmail(fmt.Sprintf("user_%s@example.com", emailPrefix)).
+		SetEmail(fmt.Sprintf("testuser%d@example.com", emailCounter)).
 		SetFirstName("Test").
 		SetLastName("User").
 		SetUsername(username).
@@ -257,8 +256,6 @@ func TestUsernameValidation_InternationalCharacters(t *testing.T) {
 			if user.Username != tt.username {
 				t.Errorf("Expected username %s, got %s", tt.username, user.Username)
 			}
-
-			t.Logf("✓ Successfully validated %s: %s", tt.description, tt.username)
 		})
 	}
 }
