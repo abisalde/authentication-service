@@ -64,32 +64,51 @@ func init() {
 	userDescEmail := userFields[1].Descriptor()
 	// user.EmailValidator is a validator for the "email" field. It is called by the builders before save.
 	user.EmailValidator = userDescEmail.Validators[0].(func(string) error)
+	// userDescUsername is the schema descriptor for username field.
+	userDescUsername := userFields[2].Descriptor()
+	// user.UsernameValidator is a validator for the "username" field. It is called by the builders before save.
+	user.UsernameValidator = func() func(string) error {
+		validators := userDescUsername.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(username string) error {
+			for _, fn := range fns {
+				if err := fn(username); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// userDescOauthID is the schema descriptor for oauth_id field.
-	userDescOauthID := userFields[3].Descriptor()
+	userDescOauthID := userFields[4].Descriptor()
 	// user.OauthIDValidator is a validator for the "oauth_id" field. It is called by the builders before save.
 	user.OauthIDValidator = userDescOauthID.Validators[0].(func(string) error)
 	// userDescFirstName is the schema descriptor for first_name field.
-	userDescFirstName := userFields[5].Descriptor()
+	userDescFirstName := userFields[6].Descriptor()
 	// user.DefaultFirstName holds the default value on creation for the first_name field.
 	user.DefaultFirstName = userDescFirstName.Default.(string)
 	// user.FirstNameValidator is a validator for the "first_name" field. It is called by the builders before save.
 	user.FirstNameValidator = userDescFirstName.Validators[0].(func(string) error)
 	// userDescLastName is the schema descriptor for last_name field.
-	userDescLastName := userFields[6].Descriptor()
+	userDescLastName := userFields[7].Descriptor()
 	// user.DefaultLastName holds the default value on creation for the last_name field.
 	user.DefaultLastName = userDescLastName.Default.(string)
 	// user.LastNameValidator is a validator for the "last_name" field. It is called by the builders before save.
 	user.LastNameValidator = userDescLastName.Validators[0].(func(string) error)
 	// userDescPhoneNumber is the schema descriptor for phone_number field.
-	userDescPhoneNumber := userFields[7].Descriptor()
+	userDescPhoneNumber := userFields[8].Descriptor()
 	// user.PhoneNumberValidator is a validator for the "phone_number" field. It is called by the builders before save.
 	user.PhoneNumberValidator = userDescPhoneNumber.Validators[0].(func(string) error)
 	// userDescIsEmailVerified is the schema descriptor for is_email_verified field.
-	userDescIsEmailVerified := userFields[9].Descriptor()
+	userDescIsEmailVerified := userFields[10].Descriptor()
 	// user.DefaultIsEmailVerified holds the default value on creation for the is_email_verified field.
 	user.DefaultIsEmailVerified = userDescIsEmailVerified.Default.(bool)
 	// userDescMarketingOptIn is the schema descriptor for marketing_opt_in field.
-	userDescMarketingOptIn := userFields[10].Descriptor()
+	userDescMarketingOptIn := userFields[11].Descriptor()
 	// user.DefaultMarketingOptIn holds the default value on creation for the marketing_opt_in field.
 	user.DefaultMarketingOptIn = userDescMarketingOptIn.Default.(bool)
 }

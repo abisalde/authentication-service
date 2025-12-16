@@ -12,10 +12,10 @@ import (
 )
 
 type ProfileHandler struct {
-	authService service.AuthService
+	authService *service.AuthService
 }
 
-func NewProfileHandler(authService service.AuthService) *ProfileHandler {
+func NewProfileHandler(authService *service.AuthService) *ProfileHandler {
 	return &ProfileHandler{authService: authService}
 }
 
@@ -54,4 +54,36 @@ func (h *ProfileHandler) HandlePasswordChange(ctx context.Context, input model.C
 	}
 
 	return true, nil
+}
+
+func (h *ProfileHandler) UpdateUserProfile(ctx context.Context, input model.UpdateProfileInput) (*model.User, error) {
+	currentUser := auth.GetCurrentUser(ctx)
+	if currentUser == nil {
+		return nil, errors.AuthenticationRequired
+	}
+
+	if input.Username != nil && *input.Username != "" {
+		if currentUser.Username != *input.Username {
+			available, err := h.authService.CheckUsernameAvailability(ctx, *input.Username)
+			if err != nil {
+				return nil, err
+			}
+			if !available {
+				return nil, errors.NewTypedError("Username is already taken", model.ErrorTypeBadRequest, map[string]interface{}{
+					"field": "username",
+				})
+			}
+
+			if err := h.authService.UpdateUsername(ctx, currentUser.ID, *input.Username); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	updatedUser, err := h.authService.FindUserProfileById(ctx, currentUser.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return converters.UserToGraph(updatedUser), nil
 }

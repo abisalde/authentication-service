@@ -21,13 +21,13 @@ type Resolver struct {
 	usersHandler    *http.UsersHandler
 }
 
-func NewResolver(client *ent.Client, authService service.AuthService, oauthService service.OAuthService) *Resolver {
+func NewResolver(client *ent.Client, authService *service.AuthService, oauthService *service.OAuthService) *Resolver {
 	registerHandler := http.NewRegisterHandler(authService)
 	loginHandler := http.NewLoginHandler(authService)
 	profileHandler := http.NewProfileHandler(authService)
 	usersHandler := http.NewUsersHandler(authService)
 	tokenHandler := http.NewTokenHandler(authService)
-	oauthHandler := oauth.NewOAuthHandler(&oauthService)
+	oauthHandler := oauth.NewOAuthHandler(oauthService)
 	return &Resolver{
 		client:          client,
 		registerHandler: registerHandler,

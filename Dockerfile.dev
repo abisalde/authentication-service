@@ -8,8 +8,8 @@ WORKDIR /app
 # Install git for go modules if private repos
 RUN apk add --no-cache git gcc musl-dev bash
 
-# Install air for hot reload
-RUN go install github.com/air-verse/air@latest
+# Install air for hot reload (use compatible version for Go 1.24)
+RUN go install github.com/air-verse/air@v1.61.7
 
 # Download Go modules
 COPY go.mod go.sum ./

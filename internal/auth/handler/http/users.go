@@ -8,10 +8,10 @@ import (
 )
 
 type UsersHandler struct {
-	authService service.AuthService
+	authService *service.AuthService
 }
 
-func NewUsersHandler(authService service.AuthService) *UsersHandler {
+func NewUsersHandler(authService *service.AuthService) *UsersHandler {
 	return &UsersHandler{authService: authService}
 }
 
@@ -23,4 +23,12 @@ func (h *UsersHandler) GetAllUsers(ctx context.Context, role *model.UserRole, fi
 	}
 
 	return h.authService.FindUsers(ctx, role, pagination)
+}
+
+func (h *UsersHandler) SearchUsernamesAvailability(ctx context.Context, query string) (bool, error) {
+	if query == "" {
+		return false, nil
+	}
+
+	return h.authService.CheckUsernameAvailability(ctx, query)
 }

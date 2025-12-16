@@ -33,7 +33,7 @@ func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
 
 // UpdateProfile is the resolver for the updateProfile field.
 func (r *mutationResolver) UpdateProfile(ctx context.Context, input model.UpdateProfileInput) (*model.User, error) {
-	return &model.User{}, nil
+	return r.profileHandler.UpdateUserProfile(ctx, input)
 }
 
 // ChangePassword is the resolver for the changePassword field.
