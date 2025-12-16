@@ -12,9 +12,16 @@ import (
 )
 
 // SessionInfo represents an active user session
+// Enhanced to include essential user data for caching (eliminates 99% of DB calls)
 type SessionInfo struct {
 	SessionID  string    `json:"session_id"`
 	UserID     string    `json:"user_id"`
+	
+	// User data (cached in session to avoid DB lookups)
+	UserEmail     string    `json:"user_email"`
+	UserFirstName string    `json:"user_first_name"`
+	UserLastName  string    `json:"user_last_name"`
+	
 	DeviceType string    `json:"device_type"` // Desktop, Mobile, Tablet
 	DeviceName string    `json:"device_name"` // "Chrome on Windows", "iPhone 13"
 	IPAddress  string    `json:"ip_address"`

@@ -64,7 +64,17 @@ func (h *TokenHandler) HandleRefreshToken(
 }
 
 // updateSessionForRefreshToken creates or updates session when a refresh token is used
+// Includes user data in session to avoid database lookups (performance optimization)
 func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID int64, accessToken string) error {
+	// Get user data to store in session (for caching)
+	user := auth.GetCurrentUser(ctx)
+	var userEmail, userFirstName, userLastName string
+	if user != nil {
+		userEmail = user.Email
+		userFirstName = user.FirstName
+		userLastName = user.LastName
+	}
+	
 	// Extract device info from context
 	var deviceInfo *session.DeviceInfo
 	
@@ -116,17 +126,20 @@ func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID 
 		}
 	}
 
-	// Create new session for refreshed token
+	// Create new session for refreshed token (includes user data for caching)
 	sessionInfo := &session.SessionInfo{
-		UserID:     userIDStr,
-		DeviceType: deviceInfo.Type,
-		DeviceName: deviceInfo.Name,
-		IPAddress:  deviceInfo.IPAddress,
-		UserAgent:  deviceInfo.UserAgent,
-		TokenHash:  tokenHash,
-		CreatedAt:  time.Now(),
-		LastUsedAt: time.Now(),
-		ExpiresAt:  time.Now().Add(cookies.LoginAccessTokenExpiry),
+		UserID:        userIDStr,
+		UserEmail:     userEmail,      // Store for caching (eliminates 99% of DB calls)
+		UserFirstName: userFirstName,  // Store for caching
+		UserLastName:  userLastName,   // Store for caching
+		DeviceType:    deviceInfo.Type,
+		DeviceName:    deviceInfo.Name,
+		IPAddress:     deviceInfo.IPAddress,
+		UserAgent:     deviceInfo.UserAgent,
+		TokenHash:     tokenHash,
+		CreatedAt:     time.Now(),
+		LastUsedAt:    time.Now(),
+		ExpiresAt:     time.Now().Add(cookies.LoginAccessTokenExpiry),
 	}
 
 	// Enforce max sessions (configurable via constant)

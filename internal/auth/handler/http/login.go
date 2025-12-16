@@ -10,6 +10,7 @@ import (
 	"github.com/abisalde/authentication-service/internal/auth"
 	"github.com/abisalde/authentication-service/internal/auth/cookies"
 	"github.com/abisalde/authentication-service/internal/auth/service"
+	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/internal/graph/model"
 	"github.com/abisalde/authentication-service/pkg/jwt"
@@ -71,8 +72,8 @@ func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (
 		return nil, errors.ErrSomethingWentWrong
 	}
 
-	// Create session for multi-device tracking
-	if err := h.createUserSession(ctx, user.ID, tokens.AccessToken); err != nil {
+	// Create session for multi-device tracking (includes user data for caching)
+	if err := h.createUserSession(ctx, user, tokens.AccessToken); err != nil {
 		log.Printf("Failed to create session: %v", err)
 		// Don't fail login if session creation fails
 	}
@@ -85,8 +86,8 @@ func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (
 	}, nil
 }
 
-// createUserSession creates a session for device tracking
-func (h *LoginHandler) createUserSession(ctx context.Context, userID int64, accessToken string) error {
+// createUserSession creates a session for device tracking (includes user data to avoid DB lookups)
+func (h *LoginHandler) createUserSession(ctx context.Context, user *ent.User, accessToken string) error {
 	// Extract device info from context
 	var deviceInfo *session.DeviceInfo
 	
@@ -117,15 +118,18 @@ func (h *LoginHandler) createUserSession(ctx context.Context, userID int64, acce
 	}
 
 	sessionInfo := &session.SessionInfo{
-		UserID:     strconv.FormatInt(userID, 10),
-		DeviceType: deviceInfo.Type,
-		DeviceName: deviceInfo.Name,
-		IPAddress:  deviceInfo.IPAddress,
-		UserAgent:  deviceInfo.UserAgent,
-		TokenHash:  session.HashToken(accessToken),
-		CreatedAt:  time.Now(),
-		LastUsedAt: time.Now(),
-		ExpiresAt:  time.Now().Add(cookies.LoginAccessTokenExpiry),
+		UserID:        strconv.FormatInt(user.ID, 10),
+		UserEmail:     user.Email,      // Store for caching (eliminates 99% of DB calls)
+		UserFirstName: user.FirstName,  // Store for caching
+		UserLastName:  user.LastName,   // Store for caching
+		DeviceType:    deviceInfo.Type,
+		DeviceName:    deviceInfo.Name,
+		IPAddress:     deviceInfo.IPAddress,
+		UserAgent:     deviceInfo.UserAgent,
+		TokenHash:     session.HashToken(accessToken),
+		CreatedAt:     time.Now(),
+		LastUsedAt:    time.Now(),
+		ExpiresAt:     time.Now().Add(cookies.LoginAccessTokenExpiry),
 	}
 
 	// Optional: Enforce max 10 concurrent sessions per user

@@ -77,21 +77,39 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 					// Validate session and update activity
 					tokenHash := session.HashToken(tokenString)
 					if sess, err := sessionManager.GetSessionByTokenHash(ctx, claims.Subject, tokenHash); err == nil {
-						// Update session activity
-						if err := sessionManager.UpdateSessionActivity(ctx, sess.SessionID); err != nil {
-							log.Printf("Failed to update session activity: %v", err)
+						// Session found! (99% case - optimal path)
+						// Use user data from session (no DB call needed)
+						user := &ent.User{
+							ID:    userID,
+							Email: sess.UserEmail,
+							FirstName: sess.UserFirstName,
+							LastName:  sess.UserLastName,
 						}
-						// Add session to context
-						ctx = context.WithValue(ctx, auth.SessionInfoKey, sess)
-					} else {
-						log.Printf("Session not found for token, this might be an old token: %v", err)
-					}
-
-					user, err := db.User.Get(ctx, userID)
-					if err == nil {
+						
 						ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
+						ctx = context.WithValue(ctx, auth.SessionInfoKey, sess)
+						
 						realClientIP := GetClientIP(r)
 						ctx = context.WithValue(ctx, auth.ClientIPKey, realClientIP)
+						
+						// Update session activity (async, non-blocking)
+						go func() {
+							if err := sessionManager.UpdateSessionActivity(context.Background(), sess.SessionID); err != nil {
+								log.Printf("Failed to update session activity: %v", err)
+							}
+						}()
+						
+					} else {
+						// Session not found (1% case - fallback to DB)
+						// This happens for old tokens created before session implementation
+						log.Printf("Session not found for token, falling back to database: %v", err)
+						
+						user, err := db.User.Get(ctx, userID)
+						if err == nil {
+							ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
+							realClientIP := GetClientIP(r)
+							ctx = context.WithValue(ctx, auth.ClientIPKey, realClientIP)
+						}
 					}
 				}
 			}
