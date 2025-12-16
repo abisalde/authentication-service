@@ -99,10 +99,12 @@ func (h *LoginHandler) createUserSession(ctx context.Context, userID int64, acce
 			Header:     make(http.Header),
 			RemoteAddr: fiberCtx.IP(),
 		}
-		// Copy headers using All() instead of deprecated VisitAll()
-		fiberCtx.Request().Header.All(func(key, value []byte) {
-			req.Header.Add(string(key), string(value))
-		})
+		// Copy headers using GetReqHeaders()
+		for key, values := range fiberCtx.GetReqHeaders() {
+			for _, value := range values {
+				req.Header.Add(key, value)
+			}
+		}
 		deviceInfo = session.ExtractDeviceInfo(req)
 	} else {
 		// Fallback to minimal device info
