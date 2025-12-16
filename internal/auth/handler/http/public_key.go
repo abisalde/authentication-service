@@ -9,13 +9,22 @@ import (
 
 // PublicKeyHandler handles requests for the JWT public key
 type PublicKeyHandler struct {
-	jwtSecret string
+	jwtSecret    string
+	algorithm    string
+	publicKeyPath string
 }
 
 // NewPublicKeyHandler creates a new public key handler
 func NewPublicKeyHandler() *PublicKeyHandler {
+	algorithm := os.Getenv("JWT_ALGORITHM")
+	if algorithm == "" {
+		algorithm = "HS256" // Default to HS256 for backward compatibility
+	}
+	
 	return &PublicKeyHandler{
-		jwtSecret: os.Getenv("JWT_SECRET"),
+		jwtSecret:    os.Getenv("JWT_SECRET"),
+		algorithm:    algorithm,
+		publicKeyPath: os.Getenv("JWT_PUBLIC_KEY_PATH"),
 	}
 }
 
@@ -37,17 +46,56 @@ type PublicKeyResponse struct {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/public-key [get]
 func (h *PublicKeyHandler) GetPublicKey(c *fiber.Ctx) error {
-	if h.jwtSecret == "" {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "JWT_SECRET not configured",
-		})
+	var publicKey string
+	var algorithm string
+	
+	// Determine algorithm and fetch appropriate key
+	switch h.algorithm {
+	case "RS256", "RS384", "RS512":
+		// For RSA (RS256), read the actual public key file
+		if h.publicKeyPath == "" {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "JWT_PUBLIC_KEY_PATH not configured for RS256",
+			})
+		}
+		
+		keyData, err := os.ReadFile(h.publicKeyPath)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to read public key file",
+			})
+		}
+		
+		publicKey = string(keyData)
+		algorithm = h.algorithm
+		
+	case "HS256", "HS384", "HS512":
+		// For HMAC (HS256), the "public key" is the shared secret
+		// Note: This is less secure as the secret must be shared
+		if h.jwtSecret == "" {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "JWT_SECRET not configured",
+			})
+		}
+		
+		publicKey = h.jwtSecret
+		algorithm = h.algorithm
+		
+	default:
+		// Default to HS256 for backward compatibility
+		if h.jwtSecret == "" {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "JWT_SECRET not configured",
+			})
+		}
+		
+		publicKey = h.jwtSecret
+		algorithm = "HS256"
 	}
 
-	// For HMAC-based JWT (HS256), the "public key" is the shared secret
-	// In production, consider migrating to RS256 with actual public/private key pairs
 	response := PublicKeyResponse{
-		PublicKey: h.jwtSecret,
-		Algorithm: "HS256",
+		PublicKey: publicKey,
+		Algorithm: algorithm,
 		KeyID:     "default",
 		ExpiresAt: time.Now().Add(5 * time.Minute), // Cache for 5 minutes
 		Version:   "1.0",
@@ -56,6 +104,7 @@ func (h *PublicKeyHandler) GetPublicKey(c *fiber.Ctx) error {
 	// Set cache headers for microservices to cache the response
 	c.Set("Cache-Control", "public, max-age=300") // 5 minutes
 	c.Set("X-Key-Version", response.Version)
+	c.Set("X-Key-Algorithm", algorithm)
 
 	return c.JSON(response)
 }
