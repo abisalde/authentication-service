@@ -2,12 +2,14 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/abisalde/authentication-service/internal/auth"
 	"github.com/abisalde/authentication-service/internal/auth/cookies"
@@ -15,11 +17,13 @@ import (
 	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/pkg/jwt"
 	"github.com/abisalde/authentication-service/pkg/session"
+	"github.com/redis/go-redis/v9"
 )
 
 func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.Handler) http.Handler {
 	// Initialize session manager for validation
 	sessionManager := session.NewSessionManager(authService.GetCache().RawClient())
+	redisClient := authService.GetCache().RawClient()
 	
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +91,8 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 						log.Printf("Session not found for token, this might be an old token: %v", err)
 					}
 
-					user, err := db.User.Get(ctx, userID)
+					// Get user from cache first, fallback to database
+					user, err := getUserWithCache(ctx, db, redisClient, userID)
 					if err == nil {
 						ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
 						realClientIP := GetClientIP(r)
@@ -99,6 +104,43 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// getUserWithCache retrieves user from Redis cache first, falls back to database
+// Cache TTL: 5 minutes to balance freshness with performance
+func getUserWithCache(ctx context.Context, db *ent.Client, redisClient *redis.Client, userID int64) (*ent.User, error) {
+	cacheKey := "user:" + strconv.FormatInt(userID, 10)
+	cacheTTL := 5 * time.Minute
+	
+	// Try to get from cache first
+	cached, err := redisClient.Get(ctx, cacheKey).Result()
+	if err == nil && cached != "" {
+		var user ent.User
+		if err := json.Unmarshal([]byte(cached), &user); err == nil {
+			// log.Printf("User %d loaded from cache", userID)
+			return &user, nil
+		}
+		// If unmarshal fails, continue to database
+		log.Printf("Failed to unmarshal cached user: %v", err)
+	}
+	
+	// Cache miss or error - fetch from database
+	user, err := db.User.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Store in cache for future requests (fire and forget)
+	go func() {
+		data, err := json.Marshal(user)
+		if err == nil {
+			if err := redisClient.Set(context.Background(), cacheKey, data, cacheTTL).Err(); err != nil {
+				log.Printf("Failed to cache user %d: %v", userID, err)
+			}
+		}
+	}()
+	
+	return user, nil
 }
 
 func stripTokeContext(authHeader string) (string, error) {
