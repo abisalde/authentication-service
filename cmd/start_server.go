@@ -13,6 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/abisalde/authentication-service/internal/auth/handler/oauth"
+	authhttp "github.com/abisalde/authentication-service/internal/auth/handler/http"
 	"github.com/abisalde/authentication-service/internal/auth/repository"
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/configs"
@@ -189,6 +190,10 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 
 	oauthHandler := oauth.NewOAuthHandler(oauthService)
 	oauthHandler.RegisterRoutes(authService)
+
+	// Register public key endpoint for secure microservice configuration
+	publicKeyHandler := authhttp.NewPublicKeyHandler()
+	publicKeyHandler.RegisterRoutes(authService)
 
 	authService.Get("/health", func(c *fiber.Ctx) error {
 		if err := db.HealthCheck(context.Background()); err != nil {
