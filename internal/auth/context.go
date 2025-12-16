@@ -20,6 +20,7 @@ var (
 	OAuthPlatformKey      = contextKey("serviceOAuthPlatform")
 	OAuthModeKey          = contextKey("serviceOAuthPasswordLessMode")
 	OAuthUUIDKey          = contextKey("serviceOAuthUUID")
+	SessionInfoKey        = contextKey("sessionInfo")
 )
 
 func GetCurrentUser(ctx context.Context) *ent.User {

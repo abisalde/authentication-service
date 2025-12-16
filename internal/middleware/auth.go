@@ -14,9 +14,13 @@ import (
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/pkg/jwt"
+	"github.com/abisalde/authentication-service/pkg/session"
 )
 
 func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.Handler) http.Handler {
+	// Initialize session manager for validation
+	sessionManager := session.NewSessionManager(authService.GetCache().RawClient())
+	
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -68,6 +72,19 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 						log.Printf("Invalid user ID in token claims: %v", parseErr)
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
+					}
+
+					// Validate session and update activity
+					tokenHash := session.HashToken(tokenString)
+					if sess, err := sessionManager.GetSessionByTokenHash(ctx, claims.Subject, tokenHash); err == nil {
+						// Update session activity
+						if err := sessionManager.UpdateSessionActivity(ctx, sess.SessionID); err != nil {
+							log.Printf("Failed to update session activity: %v", err)
+						}
+						// Add session to context
+						ctx = context.WithValue(ctx, auth.SessionInfoKey, sess)
+					} else {
+						log.Printf("Session not found for token, this might be an old token: %v", err)
 					}
 
 					user, err := db.User.Get(ctx, userID)
