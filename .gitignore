@@ -57,6 +57,8 @@ Thumbs.db
 /example-microservice
 /examples/**/example-microservice
 /server
+/session-management-example
+/examples/**/session-management-example
 
 
 # IDE specific files
