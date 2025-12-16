@@ -319,3 +319,35 @@ func (sv *SessionValidator) Close() error {
 func (sv *SessionValidator) GetRedisClient() *redis.Client {
 	return sv.redisClient
 }
+
+// ValidateAccessTokenWithSession validates token and updates session activity
+// Returns the claims, session info (if exists), and any error
+func (sv *SessionValidator) ValidateAccessTokenWithSession(tokenString string, sessionManager *SessionManager) (*Claims, *SessionInfo, error) {
+	// Validate token first
+	claims, err := sv.ValidateAccessToken(tokenString)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get token hash
+	tokenHash := HashToken(tokenString)
+
+	// Find session
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	session, err := sessionManager.GetSessionByTokenHash(ctx, claims.Subject, tokenHash)
+	if err != nil {
+		// Session not found - could be old token before session tracking
+		// or token was issued without session tracking
+		return claims, nil, nil
+	}
+
+	// Update session activity
+	if err := sessionManager.UpdateSessionActivity(ctx, session.SessionID); err != nil {
+		// Log error but don't fail validation
+		log.Printf("Failed to update session activity: %v", err)
+	}
+
+	return claims, session, nil
+}
