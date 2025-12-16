@@ -69,7 +69,7 @@ func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID 
 	var deviceInfo *session.DeviceInfo
 	
 	// Try to get HTTP request from context
-	if req, ok := ctx.Value(auth.FiberContextWeb).(*http.Request); ok {
+	if req, ok := ctx.Value(auth.HTTPRequestKey).(*http.Request); ok {
 		deviceInfo = session.ExtractDeviceInfo(req)
 	} else if fiberCtx, ok := ctx.Value(auth.FiberContextWeb).(*fiber.Ctx); ok {
 		// Convert fiber.Ctx to http.Request-like structure
@@ -96,20 +96,19 @@ func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID 
 	tokenHash := session.HashToken(accessToken)
 
 	// Check if a session already exists for this device
+	// Note: We match by device type and name only (not IP) since IPs can change frequently
+	// on mobile networks, VPNs, etc.
 	existingSessions, err := h.sessionManager.GetUserSessions(ctx, userIDStr)
 	if err == nil {
 		// Look for a session with matching device info (same device, different token)
 		for _, sess := range existingSessions {
 			if sess.DeviceType == deviceInfo.Type && 
-			   sess.DeviceName == deviceInfo.Name && 
-			   sess.IPAddress == deviceInfo.IPAddress {
-				// Update existing session with new token hash
-				sess.TokenHash = tokenHash
-				sess.LastUsedAt = time.Now()
-				sess.ExpiresAt = time.Now().Add(cookies.LoginAccessTokenExpiry)
-				
-				// Delete old session and create new one
-				h.sessionManager.RevokeSession(ctx, userIDStr, sess.SessionID)
+			   sess.DeviceName == deviceInfo.Name {
+				// Delete old session with old token hash
+				// New session will be created below with new token
+				if err := h.sessionManager.RevokeSession(ctx, userIDStr, sess.SessionID); err != nil {
+					log.Printf("Failed to revoke old session during refresh: %v", err)
+				}
 				break
 			}
 		}
@@ -128,8 +127,9 @@ func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID 
 		ExpiresAt:  time.Now().Add(cookies.LoginAccessTokenExpiry),
 	}
 
-	// Enforce max sessions
-	if err := h.sessionManager.EnforceMaxSessions(ctx, userIDStr, 10); err != nil {
+	// Enforce max sessions (configurable via constant)
+	const maxConcurrentSessions = 10
+	if err := h.sessionManager.EnforceMaxSessions(ctx, userIDStr, maxConcurrentSessions); err != nil {
 		log.Printf("Failed to enforce max sessions: %v", err)
 	}
 

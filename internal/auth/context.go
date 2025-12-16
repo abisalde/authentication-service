@@ -14,6 +14,7 @@ var (
 	CurrentUserKey        = contextKey("currentUser")
 	ClientIPKey           = contextKey("clientIP")
 	FiberContextWeb       = contextKey("fiberContextWebApplications")
+	HTTPRequestKey        = contextKey("httpRequestForContext")
 	HTTPResponseWriterKey = contextKey("httpResponseWriterForRequest")
 	JWTTokenKey           = contextKey("JWTTokenKey")
 	OAuthStateKey         = contextKey("serviceOAuthState")

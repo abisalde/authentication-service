@@ -25,7 +25,7 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
-			ctx = context.WithValue(ctx, auth.FiberContextWeb, r)
+			ctx = context.WithValue(ctx, auth.HTTPRequestKey, r)
 			ctx = context.WithValue(ctx, auth.HTTPResponseWriterKey, w)
 
 			authHeader := r.Header.Get("Authorization")

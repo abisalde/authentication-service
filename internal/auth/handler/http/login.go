@@ -91,7 +91,7 @@ func (h *LoginHandler) createUserSession(ctx context.Context, userID int64, acce
 	var deviceInfo *session.DeviceInfo
 	
 	// Try to get HTTP request from context
-	if req, ok := ctx.Value(auth.FiberContextWeb).(*http.Request); ok {
+	if req, ok := ctx.Value(auth.HTTPRequestKey).(*http.Request); ok {
 		deviceInfo = session.ExtractDeviceInfo(req)
 	} else if fiberCtx, ok := ctx.Value(auth.FiberContextWeb).(*fiber.Ctx); ok {
 		// Convert fiber.Ctx to http.Request-like structure
