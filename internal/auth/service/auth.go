@@ -166,7 +166,44 @@ func (s *AuthService) InitiateLogin(ctx context.Context, email string) (*ent.Use
 }
 
 func (s *AuthService) FindUserProfileById(ctx context.Context, input int64) (*ent.User, error) {
-	return s.userRepo.GetByID(ctx, input)
+	// Cache key for full user profile
+	cacheKey := fmt.Sprintf("user:profile:%d", input)
+	
+	// Use singleflight to prevent cache stampede when multiple concurrent requests
+	// try to fetch the same user profile
+	result, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		// Try to get from cache first
+		var cachedUser ent.User
+		cacheErr := s.cache.Get(ctx, cacheKey, &cachedUser)
+		if cacheErr == nil {
+			// Cache hit - return cached user
+			return &cachedUser, nil
+		}
+		
+		// Cache miss - fetch from database
+		user, dbErr := s.userRepo.GetByID(ctx, input)
+		if dbErr != nil {
+			return nil, dbErr
+		}
+		
+		// Store in cache for 5 minutes (300 seconds)
+		// Using async fire-and-forget to avoid blocking the response
+		go func() {
+			cacheCtx := context.Background() // Use background context for async operation
+			cacheTTL := 5 * time.Minute
+			if setErr := s.cache.Set(cacheCtx, cacheKey, user, cacheTTL); setErr != nil {
+				log.Printf("Failed to cache user profile %d: %v", input, setErr)
+			}
+		}()
+		
+		return user, nil
+	})
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	return result.(*ent.User), nil
 }
 
 func (s *AuthService) UpdateLastLogin(ctx context.Context, userID int64) error {
@@ -211,7 +248,16 @@ func (s *AuthService) IsTokenBlacklisted(ctx context.Context, token string) bool
 }
 
 func (s *AuthService) UpdateUserPassword(ctx context.Context, userID int64, passwordHash string) error {
-	return s.userRepo.UpdateNewPassword(ctx, userID, passwordHash)
+	err := s.userRepo.UpdateNewPassword(ctx, userID, passwordHash)
+	if err != nil {
+		return err
+	}
+	
+	// Invalidate user profile cache after password update
+	cacheKey := fmt.Sprintf("user:profile:%d", userID)
+	_ = s.cache.Delete(ctx, cacheKey)
+	
+	return nil
 }
 
 func (s *AuthService) StoreRefreshToken(ctx context.Context, userID int64, token string) (string, error) {
@@ -368,6 +414,10 @@ func (s *AuthService) UpdateUsername(ctx context.Context, userID int64, newUsern
 
 	newCacheKey := fmt.Sprintf("username_exists:%s", newUsername)
 	_ = s.cache.Set(ctx, newCacheKey, true, 5*time.Minute)
+
+	// Invalidate user profile cache after username update
+	profileCacheKey := fmt.Sprintf("user:profile:%d", userID)
+	_ = s.cache.Delete(ctx, profileCacheKey)
 
 	return nil
 }
