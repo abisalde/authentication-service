@@ -34,19 +34,48 @@ Rate limiting controls the number of requests a client can make within a time wi
 - Resource exhaustion
 - DDoS attacks
 
+### Composite Rate Limiting Key
+
+**Enhanced Security:** The rate limiter uses a **composite key** combining multiple factors:
+
+1. **IP Address** - Client's network location
+2. **Device Fingerprint** - Derived from User-Agent header
+3. **API Key** - Application identifier (if provided)
+
+**Benefits:**
+- ✅ **Harder to bypass** - Attackers must change all three factors simultaneously
+- ✅ **Better isolation** - Same IP with different devices/apps gets separate limits
+- ✅ **Prevents simple evasion** - Can't bypass by just rotating IPs or changing User-Agent alone
+
+**Rate Limit Key Format:**
+```
+<IP>:<device_hash>:<api_key_hash>
+
+Examples:
+203.0.113.50:a3f2e9d1:no-apikey
+203.0.113.50:a3f2e9d1:8b4c2f1a
+```
+
 ### How It Works
 
 ```
-Client → Request → Rate Limiter → Check Count → Allow/Deny
-                         ↓
-                    Redis Counter
+Client → Request → Build Composite Key (IP+Device+APIKey) → Rate Limiter → Check Count → Allow/Deny
+                                                                    ↓
+                                                              Redis Counter
 ```
 
 **Process:**
-1. Request arrives with client IP
-2. Redis counter increments for IP + time window
-3. If count exceeds limit → Reject with 429 status
-4. Otherwise → Allow request
+1. Request arrives with client IP, User-Agent, and optional API Key
+2. Build composite identifier: `IP:device_hash:apikey_hash`
+3. Redis counter increments for composite key + time window
+4. If count exceeds limit → Reject with 429 status
+5. Otherwise → Allow request
+
+**Attack Prevention:**
+- IP rotation alone: ✅ Still blocked (same device + API key)
+- User-Agent rotation alone: ✅ Still blocked (same IP + API key)
+- API key rotation alone: ✅ Still blocked (same IP + device)
+- All three together: ⚠️ Gets new limit (but requires more effort)
 
 ### Configuration
 

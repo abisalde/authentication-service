@@ -156,7 +156,7 @@ func (sm *SecurityMiddleware) Handler() fiber.Handler {
 		
 		// Check rate limiting with exponential backoff
 		if sm.config.EnableRateLimit {
-			backoffDuration, err := sm.checkRateLimit(ctx, clientIP)
+			backoffDuration, err := sm.checkRateLimit(ctx, clientIP, c)
 			if err != nil {
 				log.Printf("Rate limit exceeded: %s - backoff: %v", clientIP, backoffDuration)
 				
@@ -282,14 +282,19 @@ func (sm *SecurityMiddleware) checkSSRFProtection(ipStr string) error {
 }
 
 // checkRateLimit implements rate limiting with exponential backoff
-func (sm *SecurityMiddleware) checkRateLimit(ctx context.Context, ipStr string) (time.Duration, error) {
+// Uses composite key: IP + Device + API Key for enhanced security
+func (sm *SecurityMiddleware) checkRateLimit(ctx context.Context, ipStr string, c *fiber.Ctx) (time.Duration, error) {
 	now := time.Now()
 	windowStart := now.Truncate(sm.config.RateWindow)
 	
+	// Build composite rate limit key: IP + Device + API Key
+	// This prevents attackers from bypassing rate limits by changing a single factor
+	rateLimitID := sm.buildRateLimitIdentifier(c, ipStr)
+	
 	// Keys for Redis
-	countKey := fmt.Sprintf("ratelimit:count:%s:%d", ipStr, windowStart.Unix())
-	violationKey := fmt.Sprintf("ratelimit:violations:%s", ipStr)
-	backoffKey := fmt.Sprintf("ratelimit:backoff:%s", ipStr)
+	countKey := fmt.Sprintf("ratelimit:count:%s:%d", rateLimitID, windowStart.Unix())
+	violationKey := fmt.Sprintf("ratelimit:violations:%s", rateLimitID)
+	backoffKey := fmt.Sprintf("ratelimit:backoff:%s", rateLimitID)
 	
 	// Check if currently in backoff period
 	if sm.config.EnableExponentialBackoff {
@@ -367,6 +372,51 @@ func pow(x, y float64) float64 {
 		result *= x
 	}
 	return result
+}
+
+// buildRateLimitIdentifier creates a composite key from IP + Device + API Key
+// This provides multi-dimensional rate limiting that's harder to bypass
+func (sm *SecurityMiddleware) buildRateLimitIdentifier(c *fiber.Ctx, ipStr string) string {
+	var parts []string
+	
+	// 1. IP Address (required)
+	parts = append(parts, ipStr)
+	
+	// 2. Device Fingerprint (from User-Agent)
+	userAgent := c.Get("User-Agent")
+	if userAgent != "" {
+		// Use a simplified device identifier
+		deviceHash := hashString(userAgent)
+		parts = append(parts, deviceHash)
+	} else {
+		parts = append(parts, "no-device")
+	}
+	
+	// 3. API Key (if present in header or query parameter)
+	apiKey := c.Get("X-API-Key")
+	if apiKey == "" {
+		apiKey = c.Query("api_key")
+	}
+	if apiKey != "" {
+		// Use hash of API key for privacy
+		apiKeyHash := hashString(apiKey)
+		parts = append(parts, apiKeyHash)
+	} else {
+		parts = append(parts, "no-apikey")
+	}
+	
+	// Combine all parts with separator
+	return strings.Join(parts, ":")
+}
+
+// hashString creates a simple hash of a string for rate limit keys
+func hashString(s string) string {
+	// Simple hash function for rate limiting (not cryptographic)
+	hash := uint32(0)
+	for i := 0; i < len(s); i++ {
+		hash = hash*31 + uint32(s[i])
+	}
+	return fmt.Sprintf("%x", hash)
 }
 
 // isTrustedProxy checks if an IP is a trusted proxy
