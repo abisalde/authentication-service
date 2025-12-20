@@ -151,7 +151,7 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 	return srv, authService, oauthService
 }
 
-func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService, oauthService *service.OAuthService) *fiber.App {
+func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService, oauthService *service.OAuthService, redisCache *database.RedisCache) *fiber.App {
 	env := os.Getenv("APP_ENV")
 	trustedDockerNetworkCIDR := "172.18.0.0/16"
 
@@ -169,6 +169,18 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 		}
 		return c.Next()
 	})
+
+	// Security middleware - must be early in the chain
+	securityConfig := middleware.DefaultSecurityConfig()
+	// Customize based on environment
+	if env == "production" {
+		securityConfig.RateLimit = 60 // Stricter in production
+		securityConfig.EnableExponentialBackoff = true
+	} else {
+		securityConfig.RateLimit = 1000 // More lenient for development
+	}
+	securityMiddleware := middleware.NewSecurityMiddleware(securityConfig, redisCache.RawClient())
+	authService.Use(securityMiddleware.Handler())
 
 	authService.Use(healthcheck.New(healthcheck.Config{
 		LivenessProbe: func(c *fiber.Ctx) bool {
