@@ -4,23 +4,31 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/abisalde/authentication-service/internal/auth"
 	"github.com/abisalde/authentication-service/internal/auth/cookies"
 	"github.com/abisalde/authentication-service/internal/auth/service"
+	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/internal/graph/model"
 	"github.com/abisalde/authentication-service/pkg/jwt"
 	"github.com/abisalde/authentication-service/pkg/password"
+	"github.com/abisalde/authentication-service/pkg/session"
 	"github.com/gofiber/fiber/v2"
 )
 
 type LoginHandler struct {
-	authService *service.AuthService
+	authService    *service.AuthService
+	sessionManager *session.SessionManager
 }
 
 func NewLoginHandler(authService *service.AuthService) *LoginHandler {
-	return &LoginHandler{authService: authService}
+	return &LoginHandler{
+		authService:    authService,
+		sessionManager: session.NewSessionManager(authService.GetCache().RawClient()),
+	}
 }
 
 func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (*model.LoginResponse, error) {
@@ -64,12 +72,72 @@ func (h *LoginHandler) EmailLogin(ctx context.Context, input model.LoginInput) (
 		return nil, errors.ErrSomethingWentWrong
 	}
 
+	// Create session for multi-device tracking (includes user data for caching)
+	if err := h.createUserSession(ctx, user, tokens.AccessToken); err != nil {
+		log.Printf("Failed to create session: %v", err)
+		// Don't fail login if session creation fails
+	}
+
 	return &model.LoginResponse{
 		UserId:       user.ID,
 		Token:        tokens.AccessToken,
 		RefreshToken: hashedToken,
 		Email:        user.Email,
 	}, nil
+}
+
+// createUserSession creates a session for device tracking (includes user data to avoid DB lookups)
+func (h *LoginHandler) createUserSession(ctx context.Context, user *ent.User, accessToken string) error {
+	// Extract device info from context
+	var deviceInfo *session.DeviceInfo
+	
+	// Try to get HTTP request from context
+	if req, ok := ctx.Value(auth.HTTPRequestKey).(*http.Request); ok {
+		deviceInfo = session.ExtractDeviceInfo(req)
+	} else if fiberCtx, ok := ctx.Value(auth.FiberContextWeb).(*fiber.Ctx); ok {
+		// Convert fiber.Ctx to http.Request-like structure
+		req := &http.Request{
+			Header:     make(http.Header),
+			RemoteAddr: fiberCtx.IP(),
+		}
+		// Copy headers using GetReqHeaders()
+		for key, values := range fiberCtx.GetReqHeaders() {
+			for _, value := range values {
+				req.Header.Add(key, value)
+			}
+		}
+		deviceInfo = session.ExtractDeviceInfo(req)
+	} else {
+		// Fallback to minimal device info
+		deviceInfo = &session.DeviceInfo{
+			Type:      "Unknown",
+			Name:      "Unknown",
+			IPAddress: auth.GetIPFromContext(ctx),
+			UserAgent: "Unknown",
+		}
+	}
+
+	sessionInfo := &session.SessionInfo{
+		UserID:        strconv.FormatInt(user.ID, 10),
+		UserEmail:     user.Email,      // Store for caching (eliminates 99% of DB calls)
+		UserFirstName: user.FirstName,  // Store for caching
+		UserLastName:  user.LastName,   // Store for caching
+		DeviceType:    deviceInfo.Type,
+		DeviceName:    deviceInfo.Name,
+		IPAddress:     deviceInfo.IPAddress,
+		UserAgent:     deviceInfo.UserAgent,
+		TokenHash:     session.HashToken(accessToken),
+		CreatedAt:     time.Now(),
+		LastUsedAt:    time.Now(),
+		ExpiresAt:     time.Now().Add(cookies.LoginAccessTokenExpiry),
+	}
+
+	// Optional: Enforce max 10 concurrent sessions per user
+	if err := h.sessionManager.EnforceMaxSessions(ctx, sessionInfo.UserID, 10); err != nil {
+		log.Printf("Failed to enforce max sessions: %v", err)
+	}
+
+	return h.sessionManager.CreateSession(ctx, sessionInfo)
 }
 
 func (h *LoginHandler) ProcessLogout(ctx context.Context) (bool, error) {
@@ -85,6 +153,15 @@ func (h *LoginHandler) ProcessLogout(ctx context.Context) (bool, error) {
 		remainingTTL := jwt.GetTokenRemainingTTL(token)
 		if remainingTTL > 0 {
 			h.authService.BlacklistToken(ctx, token, remainingTTL)
+		}
+
+		// Revoke the current session
+		tokenHash := session.HashToken(token)
+		userIDStr := strconv.FormatInt(currentUser.ID, 10)
+		if sess, err := h.sessionManager.GetSessionByTokenHash(ctx, userIDStr, tokenHash); err == nil {
+			if err := h.sessionManager.RevokeSession(ctx, userIDStr, sess.SessionID); err != nil {
+				log.Printf("Failed to revoke session on logout: %v", err)
+			}
 		}
 	}
 

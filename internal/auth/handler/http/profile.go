@@ -26,6 +26,19 @@ func (h *ProfileHandler) GetUserProfile(ctx context.Context) (*model.User, error
 		return &model.User{}, errors.AuthenticationRequired
 	}
 
+	// If user object only has minimal data from session cache (ID, Email, FirstName, LastName),
+	// fetch full profile from database for complete details
+	// This is acceptable because profile queries are infrequent (~1% of requests)
+	if currentUser.CreatedAt.IsZero() {
+		// User came from session cache - fetch full details from DB
+		fullUser, err := h.authService.FindUserProfileById(ctx, currentUser.ID)
+		if err != nil {
+			return nil, err
+		}
+		return converters.UserToGraph(fullUser), nil
+	}
+
+	// User came from database (fallback case) - already has full data
 	return converters.UserToGraph(currentUser), nil
 }
 

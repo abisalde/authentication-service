@@ -22,7 +22,7 @@ func main() {
 
 	gqlSrv, auth, oauth := server.SetupGraphQLServer(db, redisClient, appCfgLoader)
 
-	authService := server.SetupFiberApp(db, gqlSrv, auth, oauth)
+	authService := server.SetupFiberApp(db, gqlSrv, auth, oauth, redisClient)
 
 	portHost := utils.GetListenAddress(appCfg)
 

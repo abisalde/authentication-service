@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -32,6 +33,12 @@ func (r *RateLimitDirective) RateLimit(
 	limit int32,
 	duration int32,
 ) (interface{}, error) {
+
+	env := os.Getenv("APP_ENV")
+	if env == "development" || env == "test" {
+		log.Printf("Rate limiting skipped in %s environment\n", env)
+		return next(ctx)
+	}
 
 	auth.DebugContext(ctx)
 

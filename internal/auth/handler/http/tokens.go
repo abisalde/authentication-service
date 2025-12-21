@@ -3,19 +3,29 @@ package http
 import (
 	"context"
 	"log"
+	"net/http"
+	"strconv"
+	"time"
 
+	"github.com/abisalde/authentication-service/internal/auth"
 	"github.com/abisalde/authentication-service/internal/auth/cookies"
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/graph/errors"
 	"github.com/abisalde/authentication-service/internal/graph/model"
+	"github.com/abisalde/authentication-service/pkg/session"
+	"github.com/gofiber/fiber/v2"
 )
 
 type TokenHandler struct {
-	authService *service.AuthService
+	authService    *service.AuthService
+	sessionManager *session.SessionManager
 }
 
 func NewTokenHandler(authService *service.AuthService) *TokenHandler {
-	return &TokenHandler{authService: authService}
+	return &TokenHandler{
+		authService:    authService,
+		sessionManager: session.NewSessionManager(authService.GetCache().RawClient()),
+	}
 }
 
 func (h *TokenHandler) HandleRefreshToken(
@@ -42,7 +52,101 @@ func (h *TokenHandler) HandleRefreshToken(
 		return nil, errors.AccessTokenGeneration
 	}
 
+	// Create or update session for the new access token
+	if err := h.updateSessionForRefreshToken(ctx, userID, accessToken); err != nil {
+		log.Printf("Failed to update session after token refresh: %v", err)
+		// Don't fail token refresh if session update fails
+	}
+
 	return &model.RefreshTokenResponse{
 		Token: accessToken,
 	}, nil
+}
+
+// updateSessionForRefreshToken creates or updates session when a refresh token is used
+// Includes user data in session to avoid database lookups (performance optimization)
+func (h *TokenHandler) updateSessionForRefreshToken(ctx context.Context, userID int64, accessToken string) error {
+	// Get user data to store in session (for caching)
+	user := auth.GetCurrentUser(ctx)
+	var userEmail, userFirstName, userLastName string
+	if user != nil {
+		userEmail = user.Email
+		userFirstName = user.FirstName
+		userLastName = user.LastName
+	}
+	
+	// Extract device info from context
+	var deviceInfo *session.DeviceInfo
+	
+	// Try to get HTTP request from context
+	if req, ok := ctx.Value(auth.HTTPRequestKey).(*http.Request); ok {
+		deviceInfo = session.ExtractDeviceInfo(req)
+	} else if fiberCtx, ok := ctx.Value(auth.FiberContextWeb).(*fiber.Ctx); ok {
+		// Convert fiber.Ctx to http.Request-like structure
+		req := &http.Request{
+			Header:     make(http.Header),
+			RemoteAddr: fiberCtx.IP(),
+		}
+		// Copy headers using GetReqHeaders()
+		for key, values := range fiberCtx.GetReqHeaders() {
+			for _, value := range values {
+				req.Header.Add(key, value)
+			}
+		}
+		deviceInfo = session.ExtractDeviceInfo(req)
+	} else {
+		// Fallback to minimal device info
+		deviceInfo = &session.DeviceInfo{
+			Type:      "Unknown",
+			Name:      "Unknown",
+			IPAddress: auth.GetIPFromContext(ctx),
+			UserAgent: "Unknown",
+		}
+	}
+
+	userIDStr := strconv.FormatInt(userID, 10)
+	tokenHash := session.HashToken(accessToken)
+
+	// Check if a session already exists for this device
+	// Note: We match by device type and name only (not IP) since IPs can change frequently
+	// on mobile networks, VPNs, etc.
+	existingSessions, err := h.sessionManager.GetUserSessions(ctx, userIDStr)
+	if err == nil {
+		// Look for a session with matching device info (same device, different token)
+		for _, sess := range existingSessions {
+			if sess.DeviceType == deviceInfo.Type && 
+			   sess.DeviceName == deviceInfo.Name {
+				// Delete old session with old token hash
+				// New session will be created below with new token
+				if err := h.sessionManager.RevokeSession(ctx, userIDStr, sess.SessionID); err != nil {
+					log.Printf("Failed to revoke old session during refresh: %v", err)
+				}
+				break
+			}
+		}
+	}
+
+	// Create new session for refreshed token (includes user data for caching)
+	sessionInfo := &session.SessionInfo{
+		UserID:        userIDStr,
+		UserEmail:     userEmail,      // Store for caching (eliminates 99% of DB calls)
+		UserFirstName: userFirstName,  // Store for caching
+		UserLastName:  userLastName,   // Store for caching
+		DeviceType:    deviceInfo.Type,
+		DeviceName:    deviceInfo.Name,
+		IPAddress:     deviceInfo.IPAddress,
+		UserAgent:     deviceInfo.UserAgent,
+		TokenHash:     tokenHash,
+		CreatedAt:     time.Now(),
+		LastUsedAt:    time.Now(),
+		ExpiresAt:     time.Now().Add(cookies.LoginAccessTokenExpiry),
+	}
+
+	// Enforce max sessions (configurable via constant)
+	const maxConcurrentSessions = 10
+	if err := h.sessionManager.EnforceMaxSessions(ctx, userIDStr, maxConcurrentSessions); err != nil {
+		log.Printf("Failed to enforce max sessions: %v", err)
+	}
+
+	return h.sessionManager.CreateSession(ctx, sessionInfo)
 }

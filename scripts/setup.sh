@@ -11,7 +11,18 @@ DB_USER="appuser"
 DEV_DB_NAME="authservicelocal"
 PROD_DB_NAME="authserviceprod"
 REDIS_PASSWORD=$(openssl rand -hex 32)
+
+# JWT Configuration
+# Option 1: HS256 - Symmetric (simpler, less secure)
 JWT_SECRET=$(openssl rand -hex 64)
+
+# Option 2: RS256 - Asymmetric (more secure, recommended for production)
+# To use RS256, run: ./scripts/generate-keys.sh
+# Then uncomment these lines and comment out JWT_SECRET above:
+# JWT_ALGORITHM=RS256
+# JWT_PRIVATE_KEY_PATH=./secrets/keys/jwt_private.pem
+# JWT_PUBLIC_KEY_PATH=./secrets/keys/jwt_public.pem
+
 API_URL="api.abisalde.dev"
 
 
@@ -105,6 +116,7 @@ APP_DEV_HOST_PORT=$APP_DEV_HOST_PORT
 PORT=$APP_DEV_HOST_PORT
 APP_ENV=development
 JWT_SECRET=$JWT_SECRET
+JWT_ALGORITHM=HS256
 SMTP_HOST=$SMTP_HOST
 SMTP_PORT=$SMTP_PORT
 EOF
@@ -347,3 +359,9 @@ echo "   ./scripts/migrate.sh"
 echo ""
 echo "3. 🚀 Run the application:"
 echo "   The service will be available at http://localhost:$APP_DEV_HOST_PORT"
+echo ""
+echo "💡 Security Tip:"
+echo "   For enhanced security, consider using RS256 (RSA) instead of HS256:"
+echo "   1. Run: ./scripts/generate-keys.sh"
+echo "   2. Update .env to use RS256 (see comments in .env)"
+echo "   3. See docs/RS256_MIGRATION_GUIDE.md for details"

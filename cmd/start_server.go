@@ -13,6 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/abisalde/authentication-service/internal/auth/handler/oauth"
+	authhttp "github.com/abisalde/authentication-service/internal/auth/handler/http"
 	"github.com/abisalde/authentication-service/internal/auth/repository"
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/configs"
@@ -150,7 +151,7 @@ func SetupGraphQLServer(db *database.Database, redisClient *database.RedisCache,
 	return srv, authService, oauthService
 }
 
-func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService, oauthService *service.OAuthService) *fiber.App {
+func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.AuthService, oauthService *service.OAuthService, redisCache *database.RedisCache) *fiber.App {
 	env := os.Getenv("APP_ENV")
 	trustedDockerNetworkCIDR := "172.18.0.0/16"
 
@@ -168,6 +169,18 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 		}
 		return c.Next()
 	})
+
+	// Security middleware - must be early in the chain
+	securityConfig := middleware.DefaultSecurityConfig()
+	// Customize based on environment
+	if env == "production" {
+		securityConfig.RateLimit = 60 // Stricter in production
+		securityConfig.EnableExponentialBackoff = true
+	} else {
+		securityConfig.RateLimit = 1000 // More lenient for development
+	}
+	securityMiddleware := middleware.NewSecurityMiddleware(securityConfig, redisCache.RawClient())
+	authService.Use(securityMiddleware.Handler())
 
 	authService.Use(healthcheck.New(healthcheck.Config{
 		LivenessProbe: func(c *fiber.Ctx) bool {
@@ -189,6 +202,10 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 
 	oauthHandler := oauth.NewOAuthHandler(oauthService)
 	oauthHandler.RegisterRoutes(authService)
+
+	// Register public key endpoint for secure microservice configuration
+	publicKeyHandler := authhttp.NewPublicKeyHandler()
+	publicKeyHandler.RegisterRoutes(authService)
 
 	authService.Get("/health", func(c *fiber.Ctx) error {
 		if err := db.HealthCheck(context.Background()); err != nil {

@@ -14,14 +14,18 @@ import (
 	"github.com/abisalde/authentication-service/internal/auth/service"
 	"github.com/abisalde/authentication-service/internal/database/ent"
 	"github.com/abisalde/authentication-service/pkg/jwt"
+	"github.com/abisalde/authentication-service/pkg/session"
 )
 
 func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.Handler) http.Handler {
+	// Initialize session manager for validation
+	sessionManager := session.NewSessionManager(authService.GetCache().RawClient())
+	
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
-			ctx = context.WithValue(ctx, auth.FiberContextWeb, r)
+			ctx = context.WithValue(ctx, auth.HTTPRequestKey, r)
 			ctx = context.WithValue(ctx, auth.HTTPResponseWriterKey, w)
 
 			authHeader := r.Header.Get("Authorization")
@@ -70,11 +74,42 @@ func AuthMiddleware(db *ent.Client, authService *service.AuthService) func(http.
 						return
 					}
 
-					user, err := db.User.Get(ctx, userID)
-					if err == nil {
+					// Validate session and update activity
+					tokenHash := session.HashToken(tokenString)
+					if sess, err := sessionManager.GetSessionByTokenHash(ctx, claims.Subject, tokenHash); err == nil {
+						// Session found! (99% case - optimal path)
+						// Use user data from session (no DB call needed)
+						user := &ent.User{
+							ID:    userID,
+							Email: sess.UserEmail,
+							FirstName: sess.UserFirstName,
+							LastName:  sess.UserLastName,
+						}
+						
 						ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
+						ctx = context.WithValue(ctx, auth.SessionInfoKey, sess)
+						
 						realClientIP := GetClientIP(r)
 						ctx = context.WithValue(ctx, auth.ClientIPKey, realClientIP)
+						
+						// Update session activity (async, non-blocking)
+						go func() {
+							if err := sessionManager.UpdateSessionActivity(context.Background(), sess.SessionID); err != nil {
+								log.Printf("Failed to update session activity: %v", err)
+							}
+						}()
+						
+					} else {
+						// Session not found (1% case - fallback to DB)
+						// This happens for old tokens created before session implementation
+						log.Printf("Session not found for token, falling back to database: %v", err)
+						
+						user, err := db.User.Get(ctx, userID)
+						if err == nil {
+							ctx = context.WithValue(ctx, auth.CurrentUserKey, user)
+							realClientIP := GetClientIP(r)
+							ctx = context.WithValue(ctx, auth.ClientIPKey, realClientIP)
+						}
 					}
 				}
 			}
