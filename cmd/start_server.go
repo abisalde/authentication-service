@@ -230,7 +230,7 @@ func SetupFiberApp(db *database.Database, gqlSrv *handler.Server, auth *service.
 		authService.Get("/", adaptor.HTTPHandlerFunc(
 			playground.ApolloSandboxHandler("Authentication Service Playground", "/graphql"),
 		))
-		authService.Get("/dashboard", adaptor.HTTPHandlerFunc(
+		authService.Get("/playground", adaptor.HTTPHandlerFunc(
 			playground.ApolloSandboxHandler("Authentication Service Playground", "/graphql"),
 		))
 	}
